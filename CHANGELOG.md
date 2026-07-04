@@ -1,13 +1,9 @@
 # Changelog
 
-## 0.1.0 - 2026-07-04
+## 2026-07-04
 
-Initial repository starter:
-- README
-- concept screenshot
-- Obsidian feature reference catalog
-- requirements and design documents
-- security baseline
-- test handbook
-- user, developer and operations manuals
-- starter project structure for WinForms on .NET 8
+- added complete .NET 8 WinForms solution for SASD Notes
+- added domain, application, infrastructure and app projects
+- added package-free verification harness project
+- added sample vault for quick testing
+- kept the project documentation and UI concept screenshot

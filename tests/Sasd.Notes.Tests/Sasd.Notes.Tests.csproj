@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Sasd.Notes.Domain\Sasd.Notes.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Sasd.Notes.Application\Sasd.Notes.Application.csproj" />
+    <ProjectReference Include="..\..\src\Sasd.Notes.Infrastructure\Sasd.Notes.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

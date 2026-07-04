@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sasd.Notes.Domain\Sasd.Notes.Domain.csproj" />
+    <ProjectReference Include="..\Sasd.Notes.Application\Sasd.Notes.Application.csproj" />
+  </ItemGroup>
+</Project>
