@@ -1,3 +1,5 @@
+#nullable enable
+
 using System.Drawing;
 using Sasd.Notes.Domain.Models;
 
@@ -6,55 +8,58 @@ namespace Sasd.Notes.App.WinForms;
 partial class MainForm
 {
     private System.ComponentModel.IContainer? components = null;
-    private MenuStrip menuStripMain;
-    private ToolStripMenuItem fileToolStripMenuItem;
-    private ToolStripMenuItem openVaultToolStripMenuItem;
-    private ToolStripMenuItem recentFoldersToolStripMenuItem;
-    private ToolStripMenuItem newNoteToolStripMenuItem;
-    private ToolStripMenuItem saveToolStripMenuItem;
-    private ToolStripMenuItem refreshVaultToolStripMenuItem;
-    private ToolStripMenuItem exitToolStripMenuItem;
-    private ToolStripMenuItem editToolStripMenuItem;
-    private ToolStripMenuItem openSelectedLinkToolStripMenuItem;
-    private ToolStripMenuItem helpToolStripMenuItem;
-    private ToolStripMenuItem aboutToolStripMenuItem;
-    private ToolStrip toolStripMain;
-    private ToolStripButton toolStripButtonOpenVault;
-    private ToolStripButton toolStripButtonNewNote;
-    private ToolStripButton toolStripButtonSave;
-    private ToolStripSeparator toolStripSeparator1;
-    private ToolStripButton toolStripButtonHeading1;
-    private ToolStripButton toolStripButtonHeading2;
-    private ToolStripButton toolStripButtonHeading3;
-    private ToolStripButton toolStripButtonBold;
-    private ToolStripButton toolStripButtonItalic;
-    private ToolStripButton toolStripButtonCode;
-    private ToolStripButton toolStripButtonBulletList;
-    private ToolStripButton toolStripButtonCheckList;
-    private ToolStripButton toolStripButtonWikiLink;
-    private ToolStripSeparator toolStripSeparator2;
-    private ToolStripLabel toolStripLabelSearch;
-    private ToolStripTextBox toolStripTextBoxSearch;
-    private ToolStripButton toolStripButtonSearch;
-    private StatusStrip statusStripMain;
-    private ToolStripStatusLabel toolStripStatusMessage;
-    private ToolStripStatusLabel toolStripStatusVault;
-    private ToolStripStatusLabel toolStripStatusMetrics;
-    private SplitContainer splitContainerLeftRight;
-    private SplitContainer splitContainerEditorContext;
-    private TreeView treeViewVault;
-    private Label labelCurrentDocument;
-    private RichTextBox richTextBoxEditor;
-    private TabControl tabControlContext;
-    private TabPage tabPageSearch;
-    private TabPage tabPageBacklinks;
-    private TabPage tabPageOutline;
-    private TabPage tabPageInfo;
-    private ListBox listBoxSearchResults;
-    private ListBox listBoxBacklinks;
-    private ListBox listBoxOutline;
-    private TextBox textBoxInfo;
-    private Panel panelEditorHeader;
+    // Die Steuerelemente werden durch InitializeComponent erzeugt.
+    // null! beschreibt diese vom WinForms-Designer garantierte Initialisierung
+    // gegenüber dem Nullable-Flow-Analyzer.
+    private MenuStrip menuStripMain = null!;
+    private ToolStripMenuItem fileToolStripMenuItem = null!;
+    private ToolStripMenuItem openVaultToolStripMenuItem = null!;
+    private ToolStripMenuItem recentFoldersToolStripMenuItem = null!;
+    private ToolStripMenuItem newNoteToolStripMenuItem = null!;
+    private ToolStripMenuItem saveToolStripMenuItem = null!;
+    private ToolStripMenuItem refreshVaultToolStripMenuItem = null!;
+    private ToolStripMenuItem exitToolStripMenuItem = null!;
+    private ToolStripMenuItem editToolStripMenuItem = null!;
+    private ToolStripMenuItem openSelectedLinkToolStripMenuItem = null!;
+    private ToolStripMenuItem helpToolStripMenuItem = null!;
+    private ToolStripMenuItem aboutToolStripMenuItem = null!;
+    private ToolStrip toolStripMain = null!;
+    private ToolStripButton toolStripButtonOpenVault = null!;
+    private ToolStripButton toolStripButtonNewNote = null!;
+    private ToolStripButton toolStripButtonSave = null!;
+    private ToolStripSeparator toolStripSeparator1 = null!;
+    private ToolStripButton toolStripButtonHeading1 = null!;
+    private ToolStripButton toolStripButtonHeading2 = null!;
+    private ToolStripButton toolStripButtonHeading3 = null!;
+    private ToolStripButton toolStripButtonBold = null!;
+    private ToolStripButton toolStripButtonItalic = null!;
+    private ToolStripButton toolStripButtonCode = null!;
+    private ToolStripButton toolStripButtonBulletList = null!;
+    private ToolStripButton toolStripButtonCheckList = null!;
+    private ToolStripButton toolStripButtonWikiLink = null!;
+    private ToolStripSeparator toolStripSeparator2 = null!;
+    private ToolStripLabel toolStripLabelSearch = null!;
+    private ToolStripTextBox toolStripTextBoxSearch = null!;
+    private ToolStripButton toolStripButtonSearch = null!;
+    private StatusStrip statusStripMain = null!;
+    private ToolStripStatusLabel toolStripStatusMessage = null!;
+    private ToolStripStatusLabel toolStripStatusVault = null!;
+    private ToolStripStatusLabel toolStripStatusMetrics = null!;
+    private SplitContainer splitContainerLeftRight = null!;
+    private SplitContainer splitContainerEditorContext = null!;
+    private TreeView treeViewVault = null!;
+    private Label labelCurrentDocument = null!;
+    private RichTextBox richTextBoxEditor = null!;
+    private TabControl tabControlContext = null!;
+    private TabPage tabPageSearch = null!;
+    private TabPage tabPageBacklinks = null!;
+    private TabPage tabPageOutline = null!;
+    private TabPage tabPageInfo = null!;
+    private ListBox listBoxSearchResults = null!;
+    private ListBox listBoxBacklinks = null!;
+    private ListBox listBoxOutline = null!;
+    private TextBox textBoxInfo = null!;
+    private Panel panelEditorHeader = null!;
 
     /// <summary>
     /// Bereinigt verwendete Ressourcen.

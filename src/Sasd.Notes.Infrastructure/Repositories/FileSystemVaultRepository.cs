@@ -22,9 +22,16 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     }
 
     /// <inheritdoc />
+    public bool VaultExists(string vaultPath)
+    {
+        return !string.IsNullOrWhiteSpace(vaultPath) && Directory.Exists(Path.GetFullPath(vaultPath));
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<NoteDocument>> LoadAllNotesAsync(string vaultPath, CancellationToken cancellationToken = default)
     {
-        string[] files = Directory.GetFiles(vaultPath, "*.md", SearchOption.AllDirectories);
+        string normalizedVaultPath = Path.GetFullPath(vaultPath);
+        string[] files = Directory.GetFiles(normalizedVaultPath, "*.md", SearchOption.AllDirectories);
         var notes = new List<NoteDocument>(files.Length);
 
         foreach (string file in files)
@@ -33,7 +40,7 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             cancellationToken.ThrowIfCancellationRequested();
 
             string content = await File.ReadAllTextAsync(file, cancellationToken);
-            string relativePath = Path.GetRelativePath(vaultPath, file);
+            string relativePath = Path.GetRelativePath(normalizedVaultPath, file);
             string title = Path.GetFileNameWithoutExtension(file);
 
             notes.Add(new NoteDocument
@@ -53,34 +60,51 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     }
 
     /// <inheritdoc />
-    public async Task SaveNoteAsync(NoteDocument note, CancellationToken cancellationToken = default)
+    public async Task SaveNoteAsync(string vaultPath, NoteDocument note, CancellationToken cancellationToken = default)
     {
-        string? directory = Path.GetDirectoryName(note.FullPath);
+        string normalizedVaultPath = Path.GetFullPath(vaultPath);
+        string normalizedNotePath = Path.GetFullPath(note.FullPath);
+
+        // Auch bei intern erzeugten Modellen wird der Schreibpfad gegen den geöffneten Vault geprüft.
+        EnsurePathInsideVault(normalizedVaultPath, normalizedNotePath);
+
+        if (!string.Equals(Path.GetExtension(normalizedNotePath), ".md", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Es dürfen nur Markdown-Dateien gespeichert werden.");
+        }
+
+        string? directory = Path.GetDirectoryName(normalizedNotePath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
-        await File.WriteAllTextAsync(note.FullPath, note.Content, cancellationToken);
-        note.LastModifiedUtc = File.GetLastWriteTimeUtc(note.FullPath);
+        await File.WriteAllTextAsync(normalizedNotePath, note.Content, cancellationToken);
+        note.LastModifiedUtc = File.GetLastWriteTimeUtc(normalizedNotePath);
     }
 
     /// <inheritdoc />
     public async Task<NoteDocument> CreateNoteAsync(string vaultPath, string? relativeFolderPath, string title, CancellationToken cancellationToken = default)
     {
+        string normalizedVaultPath = Path.GetFullPath(vaultPath);
         string safeTitle = FileNameHelper.ToSafeFileName(title);
         string fileName = safeTitle.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
             ? safeTitle
             : safeTitle + ".md";
 
         string fullFolderPath = string.IsNullOrWhiteSpace(relativeFolderPath)
-            ? vaultPath
-            : Path.Combine(vaultPath, relativeFolderPath.Replace('/', Path.DirectorySeparatorChar));
+            ? normalizedVaultPath
+            : Path.GetFullPath(Path.Combine(
+                normalizedVaultPath,
+                relativeFolderPath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar)));
+
+        // Relative Ordner dürfen den ausgewählten Vault nicht verlassen.
+        EnsurePathInsideVault(normalizedVaultPath, fullFolderPath);
 
         Directory.CreateDirectory(fullFolderPath);
 
         string fullPath = EnsureUniqueFilePath(fullFolderPath, fileName);
-        string relativePath = Path.GetRelativePath(vaultPath, fullPath);
+        string relativePath = Path.GetRelativePath(normalizedVaultPath, fullPath);
         string initialContent = $"# {Path.GetFileNameWithoutExtension(fullPath)}{Environment.NewLine}{Environment.NewLine}";
 
         await File.WriteAllTextAsync(fullPath, initialContent, cancellationToken);
@@ -122,6 +146,22 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             }
 
             suffix++;
+        }
+    }
+
+    /// <summary>
+    /// Prüft, ob ein Pfad innerhalb eines Vault-Verzeichnisses liegt.
+    /// </summary>
+    private static void EnsurePathInsideVault(string vaultPath, string candidatePath)
+    {
+        string relativePath = Path.GetRelativePath(vaultPath, candidatePath);
+        bool escapesVault = relativePath.Equals("..", StringComparison.Ordinal) ||
+                            relativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+                            Path.IsPathRooted(relativePath);
+
+        if (escapesVault)
+        {
+            throw new InvalidOperationException("Der Dateipfad liegt außerhalb des geöffneten Vaults.");
         }
     }
 }

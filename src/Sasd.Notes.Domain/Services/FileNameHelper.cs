@@ -25,7 +25,11 @@ public static class FileNameHelper
         foreach (char character in title.Trim())
         {
             // Ungültige Zeichen werden durch Leerzeichen ersetzt, damit der Titel lesbar bleibt.
-            buffer[index++] = invalidCharacters.Contains(character) ? ' ' : character;
+            bool isPathSeparator = character is '/' or '\\';
+            bool isControlCharacter = char.IsControl(character);
+            buffer[index++] = invalidCharacters.Contains(character) || isPathSeparator || isControlCharacter
+                ? ' '
+                : character;
         }
 
         string cleaned = new string(buffer, 0, index);

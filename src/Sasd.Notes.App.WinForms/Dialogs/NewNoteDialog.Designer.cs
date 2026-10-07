@@ -1,15 +1,20 @@
+#nullable enable
+
 using System.Drawing;
 namespace Sasd.Notes.App.WinForms.Dialogs;
 
 partial class NewNoteDialog
 {
     private System.ComponentModel.IContainer? components = null;
-    private Label labelTargetFolder;
-    private TextBox textBoxTargetFolder;
-    private Label labelNoteTitle;
-    private TextBox textBoxNoteTitle;
-    private Button buttonOk;
-    private Button buttonCancel;
+    // Die Steuerelemente werden durch InitializeComponent erzeugt.
+    // null! beschreibt diese vom WinForms-Designer garantierte Initialisierung
+    // gegenüber dem Nullable-Flow-Analyzer.
+    private Label labelTargetFolder = null!;
+    private TextBox textBoxTargetFolder = null!;
+    private Label labelNoteTitle = null!;
+    private TextBox textBoxNoteTitle = null!;
+    private Button buttonOk = null!;
+    private Button buttonCancel = null!;
 
     /// <summary>
     /// Bereinigt verwendete Ressourcen.

@@ -1,11 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
+    <LangVersion>12.0</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>

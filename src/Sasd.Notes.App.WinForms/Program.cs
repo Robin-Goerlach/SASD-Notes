@@ -37,6 +37,7 @@ internal static class Program
             searchService,
             backlinkService);
 
-        Application.Run(new MainForm(workspaceService, editorFormattingService));
+        // Der vollqualifizierte Name vermeidet die Kollision mit dem Namespace Sasd.Notes.Application.
+        System.Windows.Forms.Application.Run(new MainForm(workspaceService, editorFormattingService));
     }
 }

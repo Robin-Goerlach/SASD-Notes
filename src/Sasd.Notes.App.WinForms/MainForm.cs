@@ -35,7 +35,7 @@ public partial class MainForm : Form
             RefreshRecentFoldersMenu();
 
             string? lastOpenedVaultPath = _workspaceService.GetLastOpenedVaultPath();
-            if (!string.IsNullOrWhiteSpace(lastOpenedVaultPath) && Directory.Exists(lastOpenedVaultPath))
+            if (!string.IsNullOrWhiteSpace(lastOpenedVaultPath) && _workspaceService.VaultExists(lastOpenedVaultPath))
             {
                 await OpenVaultAsync(lastOpenedVaultPath);
             }
@@ -620,7 +620,7 @@ public partial class MainForm : Form
             return;
         }
 
-        if (!Directory.Exists(folderPath))
+        if (!_workspaceService.VaultExists(folderPath))
         {
             MessageBox.Show(this, "Der zuletzt verwendete Ordner ist nicht mehr vorhanden.", "SASD Notes", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
@@ -778,11 +778,9 @@ public partial class MainForm : Form
     {
         MessageBox.Show(
             this,
-            "SASD Notes
-
-Lokale Markdown-Notizen mit Wiki-Links, Suche, Backlinks und thematischen Ordnern.
-
-V1 WinForms / .NET 8",
+            "SASD Notes\n\n" +
+            "Lokale Markdown-Notizen mit Wiki-Links, Suche, Backlinks und thematischen Ordnern.\n\n" +
+            "V1 WinForms / .NET 8",
             "Über SASD Notes",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);

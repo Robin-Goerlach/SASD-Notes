@@ -43,9 +43,25 @@ public sealed class JsonSettingsRepository : ISettingsRepository
         }
 
         await using FileStream stream = File.OpenRead(_settingsFilePath);
-        AppSettings? settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, SerializerOptions, cancellationToken);
 
-        return settings ?? new AppSettings();
+        try
+        {
+            AppSettings? settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, SerializerOptions, cancellationToken);
+
+            // Fehlende oder null serialisierte Listen werden auf einen sicheren Standard zurückgeführt.
+            if (settings is null)
+            {
+                return new AppSettings();
+            }
+
+            settings.RecentFolders ??= new List<RecentFolderEntry>();
+            return settings;
+        }
+        catch (JsonException)
+        {
+            // Eine beschädigte Einstellungsdatei darf den Start der Anwendung nicht verhindern.
+            return new AppSettings();
+        }
     }
 
     /// <inheritdoc />

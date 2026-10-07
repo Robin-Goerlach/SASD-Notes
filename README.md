@@ -47,14 +47,20 @@ This repository now contains a **working V1 code base structure** for a **.NET 8
 ## Build on the command line
 
 ```powershell
- dotnet restore
- dotnet build Sasd.Notes.sln
- dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj
+dotnet restore
+dotnet build Sasd.Notes.sln
+dotnet test Sasd.Notes.sln
+dotnet run --project .\tests\Sasd.Notes.Tests\Sasd.Notes.Tests.csproj
+dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj
 ```
 
 ## Notes about the tests project
 
 To keep the solution **package-free and easy to build**, `Sasd.Notes.Tests` is currently implemented as a small console-based verification harness instead of using external test packages. This keeps compilation simple and still provides executable checks for the core logic.
+
+`dotnet test` verifies that the solution and test project build. The executable
+test harness itself is run with the additional `dotnet run --project` command
+shown above.
 
 ## Quick demo
 

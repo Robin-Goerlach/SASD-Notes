@@ -79,6 +79,16 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
+    /// Prüft über das Repository, ob ein Vault geöffnet werden kann.
+    /// </summary>
+    /// <param name="vaultPath">Zu prüfender Vault-Pfad.</param>
+    /// <returns><see langword="true"/>, wenn der Vault-Ordner vorhanden ist.</returns>
+    public bool VaultExists(string vaultPath)
+    {
+        return !string.IsNullOrWhiteSpace(vaultPath) && _vaultRepository.VaultExists(vaultPath);
+    }
+
+    /// <summary>
     /// Öffnet einen Vault und lädt alle Markdown-Dateien in den Arbeitsspeicher.
     /// </summary>
     public async Task<VaultInfo> OpenVaultAsync(string vaultPath, CancellationToken cancellationToken = default)
@@ -88,25 +98,26 @@ public sealed class NotesWorkspaceService
             throw new ArgumentException("Der Vault-Pfad darf nicht leer sein.", nameof(vaultPath));
         }
 
-        if (!Directory.Exists(vaultPath))
+        string normalizedVaultPath = Path.GetFullPath(vaultPath);
+        if (!_vaultRepository.VaultExists(normalizedVaultPath))
         {
             throw new DirectoryNotFoundException($"Der Vault-Ordner wurde nicht gefunden: {vaultPath}");
         }
 
         var vaultInfo = new VaultInfo
         {
-            DisplayName = Path.GetFileName(vaultPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
-            RootPath = vaultPath
+            DisplayName = Path.GetFileName(normalizedVaultPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+            RootPath = normalizedVaultPath
         };
 
-        IReadOnlyList<NoteDocument> notes = await _vaultRepository.LoadAllNotesAsync(vaultPath, cancellationToken);
+        IReadOnlyList<NoteDocument> notes = await _vaultRepository.LoadAllNotesAsync(normalizedVaultPath, cancellationToken);
 
         // Der neue Zustand wird erst übernommen, wenn das Laden erfolgreich abgeschlossen wurde.
         _loadedNotes.Clear();
         _loadedNotes.AddRange(notes.OrderBy(note => note.RelativePath, StringComparer.OrdinalIgnoreCase));
         CurrentVault = vaultInfo;
 
-        await RememberRecentFolderAsync(vaultPath, cancellationToken);
+        await RememberRecentFolderAsync(normalizedVaultPath, cancellationToken);
         return vaultInfo;
     }
 
@@ -182,9 +193,14 @@ public sealed class NotesWorkspaceService
     {
         note.Content = updatedContent;
         note.Links = _wikiLinkParser.Parse(updatedContent);
-        note.IsDirty = false;
 
-        await _vaultRepository.SaveNoteAsync(note, cancellationToken);
+        if (CurrentVault is null)
+        {
+            throw new InvalidOperationException("Es ist kein Vault geöffnet.");
+        }
+
+        await _vaultRepository.SaveNoteAsync(CurrentVault.RootPath, note, cancellationToken);
+        note.IsDirty = false;
     }
 
     /// <summary>
@@ -245,7 +261,8 @@ public sealed class NotesWorkspaceService
             return selectedLink is null ? null : _linkResolver.Resolve(selectedLink.Target, ReplaceOrInjectSnapshot(note));
         }
 
-        WikiLink? linkAtPosition = links.FirstOrDefault(link => caretPosition >= link.StartIndex && caretPosition <= link.StartIndex + link.Length);
+        WikiLink? linkAtPosition = links.FirstOrDefault(link =>
+            caretPosition >= link.StartIndex && caretPosition < link.StartIndex + link.Length);
         return linkAtPosition is null ? null : _linkResolver.Resolve(linkAtPosition.Target, ReplaceOrInjectSnapshot(note));
     }
 

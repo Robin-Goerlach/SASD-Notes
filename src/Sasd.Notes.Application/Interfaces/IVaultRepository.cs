@@ -8,6 +8,13 @@ namespace Sasd.Notes.Application.Interfaces;
 public interface IVaultRepository
 {
     /// <summary>
+    /// Prüft, ob ein möglicher Vault-Ordner vorhanden ist.
+    /// </summary>
+    /// <param name="vaultPath">Zu prüfender Vault-Pfad.</param>
+    /// <returns><see langword="true"/>, wenn der Ordner vorhanden ist.</returns>
+    bool VaultExists(string vaultPath);
+
+    /// <summary>
     /// Lädt alle Markdown-Notizen eines Vaults rekursiv.
     /// </summary>
     /// <param name="vaultPath">Pfad zum Vault-Wurzelverzeichnis.</param>
@@ -18,9 +25,10 @@ public interface IVaultRepository
     /// <summary>
     /// Speichert eine Notiz zurück in das Dateisystem.
     /// </summary>
+    /// <param name="vaultPath">Pfad zum geöffneten Vault-Wurzelverzeichnis.</param>
     /// <param name="note">Zu speichernde Notiz.</param>
     /// <param name="cancellationToken">Abbruchtoken.</param>
-    Task SaveNoteAsync(NoteDocument note, CancellationToken cancellationToken = default);
+    Task SaveNoteAsync(string vaultPath, NoteDocument note, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Erstellt eine neue Markdown-Notiz in einem Zielordner.

@@ -18,7 +18,9 @@ Dieses Entwicklerhandbuch beschreibt Konventionen, Projektstruktur und Arbeitswe
 - Plattform: .NET 8
 - UI: Windows Forms
 - IDE: Visual Studio 2022
-- Tests: xUnit oder NUnit
+- Tests: paketfreier Konsolen-Test-Harness (`Sasd.Notes.Tests`); ein späterer
+  Wechsel auf ein Test-SDK ist möglich, aber für die aktuelle Build-Baseline
+  nicht erforderlich.
 - Repository: Git / GitHub
 
 ---
@@ -121,6 +123,20 @@ Der Code soll aber so gebaut werden, dass spätere Erweiterungspunkte sinnvoll m
 
 ---
 
-## 10. Ergebnis
+## 10. Build- und Testschleife
+
+```powershell
+dotnet clean
+dotnet restore
+dotnet build
+dotnet test
+dotnet run --project .\tests\Sasd.Notes.Tests\Sasd.Notes.Tests.csproj
+```
+
+`dotnet test` stellt in der aktuellen paketfreien Struktur den Build des
+Testprojekts sicher. Die fachlichen Prüfungen werden anschließend explizit mit
+`dotnet run` ausgeführt.
+
+## 11. Ergebnis
 
 Dieses Entwicklerhandbuch dient als Arbeitsgrundlage für ein kleines, sauber dokumentiertes SASD-Projekt mit Fokus auf Lesbarkeit, Wartbarkeit und nachvollziehbare Entwicklung.
