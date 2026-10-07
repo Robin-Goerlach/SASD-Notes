@@ -1,45 +1,40 @@
 # SASD Notes
 
-<<<<<<< HEAD
-SASD Notes is a Windows desktop application for local Markdown knowledge bases. It is designed around plain `.md` files, wiki-style links, topic folders, search, backlinks and an editor-focused workflow.
+SASD Notes is a local-first Windows desktop application for Markdown-based
+knowledge bases. Notes remain ordinary `.md` files so that they stay portable
+and usable with other Markdown editors.
+
+The application is designed around plain Markdown files, folder-based topic
+organization, wiki-style links, search, backlinks, document outlines, and an
+editor-focused workflow.
 
 ![SASD Notes WinForms concept](docs/images/sasd-notes-winforms-concept-dark.png)
 
 ## Current implementation status
-=======
-SASD Notes is a local-first note-taking and knowledge-base application built around **normal Markdown files**, folder-based organization, wiki-style links, search, backlinks, and an editor-oriented workflow.
 
-The project is designed as **one product with multiple possible native implementations**. The current reference implementation is **C# / .NET 8 / Windows Forms** for Windows. Future implementations may be developed in **C++**, **Java**, **Swift**, or other languages while sharing the same Markdown interoperability rules and product specifications.
+SASD Notes is one product with a shared, language-neutral behavior contract.
+The current reference implementation is C# / .NET 8 / Windows Forms for
+Windows. Future implementations may be developed in C++, Java, Swift, or
+other languages while preserving Markdown interoperability and the shared
+product specifications.
 
-A future plugin system remains part of the long-term direction, but it is **not part of V1**.
+A future plugin system remains part of the long-term direction, but it is not
+part of MVP or V1.
 
-## Concept screenshot
+The repository contains a working V1 code-base structure with clean
+architectural layers:
 
-The current UI concept represents the .NET / WinForms reference implementation:
->>>>>>> origin/main
-
-This repository now contains a **working V1 code base structure** for a **.NET 8 WinForms** application with clean architectural layers:
-
-<<<<<<< HEAD
 - `Sasd.Notes.Domain`
 - `Sasd.Notes.Application`
 - `Sasd.Notes.Infrastructure`
 - `Sasd.Notes.App.WinForms`
 - `Sasd.Notes.Tests`
 
-## Implemented V1 features
-=======
-## Product goals
+The current .NET project files remain in the established `src/Sasd.Notes.*`
+directories. The language-specific directories described below provide the
+repository structure for future implementations and their documentation.
 
-- manage local Markdown files in a chosen vault / folder
-- create and edit notes in an editor-oriented workflow
-- support internal links such as `[[Project Plan]]`
-- organize knowledge across nested topic folders
-- switch between recently used topic folders / vaults
-- provide search, backlinks, and document outline navigation
-- keep user notes portable and usable outside SASD Notes
-- keep implementation architecture readable, testable, and maintainable
->>>>>>> origin/main
+## Implemented V1 features
 
 - Open a local vault folder
 - Scan and load Markdown files recursively
@@ -57,7 +52,6 @@ This repository now contains a **working V1 code base structure** for a **.NET 8
 - Info panel and status bar metrics
 - Dirty-state handling with save prompt
 
-<<<<<<< HEAD
 ## Build requirements
 
 - Windows
@@ -73,12 +67,17 @@ This repository now contains a **working V1 code base structure** for a **.NET 8
 ## Build on the command line
 
 ```powershell
+dotnet clean
 dotnet restore
 dotnet build Sasd.Notes.sln
 dotnet test Sasd.Notes.sln
 dotnet run --project .\tests\Sasd.Notes.Tests\Sasd.Notes.Tests.csproj
 dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj
 ```
+
+The WinForms build and application run are Windows-specific. The repository
+should be edited and built from one consistent Windows working copy; do not
+alternate Git clients from PowerShell and WSL against the same working tree.
 
 ## Notes about the tests project
 
@@ -92,24 +91,16 @@ shown above.
 
 A small `sample-vault/` is included so you can start the application and immediately open a realistic local knowledge base.
 
-## Documentation
+## Product goals
 
-The `docs/` directory contains the project overview, requirements, technical design, security baseline, testing guide, user/developer documentation and the WinForms duty specification.
-=======
-The first V1 is the **.NET 8 / Windows Forms implementation**.
-
-Planned capabilities include:
-
-- open a vault / root folder
-- show folders and `.md` files in a tree
-- create, open, edit, and save notes
-- basic Markdown formatting helpers
-- wiki-link parsing and navigation
-- backlinks
-- simple search across file names, titles, and content
-- recent folders / recent vaults
-- document outline
-- status information in the main window
+- Manage local Markdown files in a selected vault or root folder.
+- Create, open, edit, and save notes in an editor-oriented workflow.
+- Support internal links between notes.
+- Organize knowledge across nested topic folders.
+- Switch between recently used vaults or topic folders.
+- Provide search, backlinks, and outline navigation.
+- Keep user notes portable and usable outside SASD Notes.
+- Keep the implementation readable, testable, and maintainable.
 
 ## Multi-language repository layout
 
@@ -121,65 +112,54 @@ SASD-Notes/
 ├─ docs/                       product and implementation documentation
 ├─ spec/                       shared language-neutral behavior contracts
 ├─ src/
-│  ├─ dotnet/                  current C# / .NET 8 / WinForms reference implementation
+│  ├─ dotnet/                  .NET implementation guidance and future home
 │  ├─ cpp/                     future C++ implementation
 │  ├─ java/                    future Java implementation
 │  └─ swift/                   future Swift implementation
 └─ tests/
-   └─ dotnet/                  current .NET tests
+   └─ dotnet/                  .NET test guidance and future test layout
 ```
 
-Additional language directories should be added only when an implementation is actually started.
-
-The repository deliberately shares **behavior and file-format contracts**, not necessarily source code. Each language implementation may use an idiomatic architecture and native UI framework.
+Additional language directories should be added only when an implementation
+is actually started. The repository shares behavior and file-format contracts,
+not necessarily source code. Each implementation may use an idiomatic
+architecture and native UI framework.
 
 ## Shared specifications
 
-Cross-language behavior belongs under [`spec/`](spec/README.md).
+Cross-language behavior belongs under [`spec/`](spec/README.md). The shared
+contract includes concepts such as:
 
-The shared contract includes concepts such as:
-
-- Markdown files as the source of truth
-- vault path and folder semantics
-- wiki-link syntax and resolution
-- backlinks
-- search semantics
-- outline extraction
-- interoperability and conformance fixtures
-
-## Current implementation
-
-The active implementation is:
-
-- C#
-- .NET 8
-- Windows Forms
-- Visual Studio 2022
-- Windows
-
-See [`src/dotnet/`](src/dotnet/README.md).
-
-Codex and other coding agents should follow the repository-level [`AGENTS.md`](AGENTS.md) and, for the .NET subtree, [`src/dotnet/AGENTS.md`](src/dotnet/AGENTS.md).
+- Markdown files as the source of truth.
+- Vault path and folder semantics.
+- Wiki-link syntax and resolution.
+- Backlinks.
+- Search semantics.
+- Outline extraction.
+- Interoperability and conformance fixtures.
 
 ## Documentation
 
 - [Project overview](docs/00_Projektuebersicht.md)
 - [Obsidian feature reference catalog](docs/01_Obsidian_Funktionskatalog_Referenz.md)
-- [Lastenheft](docs/02_Lastenheft_SASD_Notes.md)
-- [Pflichtenheft WinForms](docs/03_Pflichtenheft_SASD_Notes_WinForms.md)
-- [Technical design WinForms](docs/04_Technisches_Design_WinForms.md)
+- [Requirements specification](docs/02_Lastenheft_SASD_Notes.md)
+- [WinForms technical specification](docs/03_Pflichtenheft_SASD_Notes_WinForms.md)
+- [Technical design](docs/04_Technisches_Design_WinForms.md)
 - [Security baseline](docs/05_Security_Baseline.md)
 - [Test handbook](docs/06_Testhandbuch.md)
-- [User manual](docs/07_Benutzerhandbuch.md)
+- [User handbook](docs/07_Benutzerhandbuch.md)
 - [Developer handbook](docs/08_Entwicklerhandbuch.md)
 - [Installation and operations handbook](docs/09_Installations_und_Betriebshandbuch.md)
 - [MVP / V1 project plan](docs/10_Projektplan_MVP_V1.md)
-- [Backlog V1 / V2](docs/11_Backlog_V1_V2.md)
-- [Multi-language repository architecture](docs/12_Multi_Language_Repository_Struktur.md)
+- [V1 / V2 backlog](docs/11_Backlog_V1_V2.md)
+- [Multi-language repository structure](docs/12_Multi_Language_Repository_Struktur.md)
+
+The repository-level [`AGENTS.md`](AGENTS.md) contains the general development
+rules. The .NET-specific guidance is available in
+[`src/dotnet/AGENTS.md`](src/dotnet/AGENTS.md).
 
 ## Development status
 
-The GitHub repository currently contains the planning baseline and the new multi-language layout. The .NET implementation remains the first development priority.
-
-The purpose of the language split is **not** to slow down V1 by developing four applications at once. It creates a clean place for future ports while preserving one shared product definition.
->>>>>>> origin/main
+The .NET 8 WinForms reference implementation is the first development
+priority. The multi-language layout prepares future ports without requiring
+four applications to be developed in parallel or slowing down V1.
