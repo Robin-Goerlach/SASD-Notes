@@ -588,7 +588,7 @@ public partial class MainForm : Form
                                $"Relativer Pfad: {_currentNote.RelativePath}{Environment.NewLine}" +
                                $"Letzte Änderung (UTC): {_currentNote.LastModifiedUtc:u}{Environment.NewLine}" +
                                $"Wiki-Links: {_currentNote.Links.Count}{Environment.NewLine}" +
-                               $"Nicht auflösbare Links: {unresolvedLinks.Count}{Environment.NewLine}" +
+                               $"Nicht auflösbare Links: {FormatUnresolvedLinks(unresolvedLinks)}{Environment.NewLine}" +
                                $"Status: {(_currentNote.IsDirty ? "ungespeichert" : "gespeichert")}";
         }
         else
@@ -598,6 +598,22 @@ public partial class MainForm : Form
 
         listBoxBacklinks.EndUpdate();
         listBoxOutline.EndUpdate();
+    }
+
+    /// <summary>
+    /// Formatiert die nicht auflösbaren Linkziele für das Info-Panel.
+    /// </summary>
+    /// <param name="unresolvedLinks">Nicht auflösbare Links der aktuellen Notiz.</param>
+    /// <returns>Anzahl und Ziele in kompakter Darstellung.</returns>
+    private static string FormatUnresolvedLinks(IReadOnlyList<WikiLink> unresolvedLinks)
+    {
+        if (unresolvedLinks.Count == 0)
+        {
+            return "0";
+        }
+
+        string targets = string.Join(", ", unresolvedLinks.Select(link => link.Target));
+        return $"{unresolvedLinks.Count} ({targets})";
     }
 
     /// <summary>
