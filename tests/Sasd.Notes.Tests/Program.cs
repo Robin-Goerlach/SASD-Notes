@@ -21,6 +21,7 @@ internal static class Program
             RunWikiLinkParserTests();
             RunOutlineParserTests();
             RunSearchServiceTests();
+            RunDisplayFormattingTests();
             RunEditorFormattingTests();
             RunLinkResolverTests();
             RunBacklinkServiceTests();
@@ -127,6 +128,27 @@ internal static class Program
             500,
             MarkdownFormatKind.Italic);
         AssertEx.Equal("*Äpfel 😀*", unicode.UpdatedText, "Unicode und ungültige Auswahlgrenzen müssen verarbeitet werden.");
+    }
+
+    private static void RunDisplayFormattingTests()
+    {
+        var searchHit = new SearchHit
+        {
+            NoteTitle = "Projektplan",
+            RelativePath = "Projekte/Projektplan.md",
+            PreviewText = "MVP",
+            Score = 100,
+            MatchIndex = 0
+        };
+        AssertEx.True(searchHit.ToString().Contains("Projekte/Projektplan.md", StringComparison.Ordinal), "Suchtreffer sollten den relativen Pfad anzeigen.");
+
+        var backlink = new BacklinkInfo
+        {
+            SourceTitle = "Quelle",
+            SourceRelativePath = "Inbox/Quelle.md",
+            ContextSnippet = "[[Projektplan]]"
+        };
+        AssertEx.True(backlink.ToString().Contains("Inbox/Quelle.md", StringComparison.Ordinal), "Backlinks sollten den relativen Quellpfad anzeigen.");
     }
 
     private static void RunLinkResolverTests()
