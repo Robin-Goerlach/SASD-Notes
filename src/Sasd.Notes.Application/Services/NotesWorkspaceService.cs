@@ -19,6 +19,7 @@ public sealed class NotesWorkspaceService
     private readonly BacklinkService _backlinkService;
     private AppSettings _settings = new();
     private readonly List<NoteDocument> _loadedNotes = new();
+    private readonly List<string> _loadedFolderPaths = new();
 
     /// <summary>
     /// Initialisiert eine neue Instanz der <see cref="NotesWorkspaceService"/>-Klasse.
@@ -115,6 +116,11 @@ public sealed class NotesWorkspaceService
         // Der neue Zustand wird erst übernommen, wenn das Laden erfolgreich abgeschlossen wurde.
         _loadedNotes.Clear();
         _loadedNotes.AddRange(notes.OrderBy(note => note.RelativePath, StringComparer.OrdinalIgnoreCase));
+
+        // Ordner werden separat geladen, damit auch leere Themenordner im Baum sichtbar bleiben.
+        _loadedFolderPaths.Clear();
+        _loadedFolderPaths.AddRange(_vaultRepository.LoadFolderPaths(normalizedVaultPath));
+
         CurrentVault = vaultInfo;
 
         await RememberRecentFolderAsync(normalizedVaultPath, cancellationToken);
@@ -144,36 +150,14 @@ public sealed class NotesWorkspaceService
 
         var knownFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // Zuerst werden alle Ordner eingetragen, damit auch leere Ordner dargestellt werden.
+        foreach (string folderPath in _loadedFolderPaths.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            AddFolderTreeItems(result, knownFolders, folderPath);
+        }
+
         foreach (NoteDocument note in _loadedNotes)
         {
-            string normalizedRelativePath = note.RelativePath.Replace('\\', '/');
-            string[] segments = normalizedRelativePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-
-            // Aus dem relativen Notizpfad werden zunächst alle Zwischenordner ermittelt.
-            if (segments.Length > 1)
-            {
-                string currentFolder = string.Empty;
-                for (int index = 0; index < segments.Length - 1; index++)
-                {
-                    currentFolder = string.IsNullOrEmpty(currentFolder)
-                        ? segments[index]
-                        : currentFolder + "/" + segments[index];
-
-                    if (!knownFolders.Add(currentFolder))
-                    {
-                        continue;
-                    }
-
-                    result.Add(new VaultTreeItem
-                    {
-                        DisplayText = segments[index],
-                        FullPath = Path.Combine(CurrentVault.RootPath, currentFolder.Replace('/', Path.DirectorySeparatorChar)),
-                        RelativePath = currentFolder,
-                        ItemType = TreeItemType.Folder
-                    });
-                }
-            }
-
             result.Add(new VaultTreeItem
             {
                 DisplayText = Path.GetFileName(note.RelativePath),
@@ -184,6 +168,39 @@ public sealed class NotesWorkspaceService
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Fügt einen Ordner und seine Zwischenordner einmalig in den fachlichen Baum ein.
+    /// </summary>
+    private void AddFolderTreeItems(
+        ICollection<VaultTreeItem> result,
+        ISet<string> knownFolders,
+        string relativeFolderPath)
+    {
+        string normalizedPath = relativeFolderPath.Replace('\\', '/');
+        string[] segments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        string currentFolder = string.Empty;
+
+        for (int index = 0; index < segments.Length; index++)
+        {
+            currentFolder = string.IsNullOrEmpty(currentFolder)
+                ? segments[index]
+                : currentFolder + "/" + segments[index];
+
+            if (!knownFolders.Add(currentFolder))
+            {
+                continue;
+            }
+
+            result.Add(new VaultTreeItem
+            {
+                DisplayText = segments[index],
+                FullPath = Path.Combine(CurrentVault!.RootPath, currentFolder.Replace('/', Path.DirectorySeparatorChar)),
+                RelativePath = currentFolder,
+                ItemType = TreeItemType.Folder
+            });
+        }
     }
 
     /// <summary>
@@ -240,11 +257,19 @@ public sealed class NotesWorkspaceService
         }
 
         // Die Pfad- und Namensprüfung bleibt im Infrastrukturadapter, damit alle Aufrufer dieselben Regeln verwenden.
-        return await _vaultRepository.CreateFolderAsync(
+        string createdFolderPath = await _vaultRepository.CreateFolderAsync(
             CurrentVault.RootPath,
             relativeParentPath,
             folderName,
             cancellationToken);
+
+        // Der neue Ordner wird sofort in den Arbeitsspeicher übernommen, ohne den gesamten Vault neu zu laden.
+        if (!_loadedFolderPaths.Contains(createdFolderPath, StringComparer.OrdinalIgnoreCase))
+        {
+            _loadedFolderPaths.Add(createdFolderPath);
+        }
+
+        return createdFolderPath;
     }
 
     /// <summary>
