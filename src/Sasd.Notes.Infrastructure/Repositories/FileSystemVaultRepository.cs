@@ -136,7 +136,7 @@ public sealed class FileSystemVaultRepository : IVaultRepository
         string relativePath = Path.GetRelativePath(normalizedVaultPath, fullPath);
         string initialContent = $"# {Path.GetFileNameWithoutExtension(fullPath)}{Environment.NewLine}{Environment.NewLine}";
 
-        await File.WriteAllTextAsync(fullPath, initialContent, cancellationToken);
+        await WriteTextAtomicallyAsync(fullPath, initialContent, cancellationToken);
 
         return new NoteDocument
         {
@@ -209,7 +209,14 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             }
 
             // Der Austausch erfolgt erst, wenn der vollständige neue Inhalt sicher geschrieben wurde.
-            File.Replace(temporaryPath, targetPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            if (File.Exists(targetPath))
+            {
+                File.Replace(temporaryPath, targetPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            }
+            else
+            {
+                File.Move(temporaryPath, targetPath);
+            }
         }
         catch (PlatformNotSupportedException)
         {
