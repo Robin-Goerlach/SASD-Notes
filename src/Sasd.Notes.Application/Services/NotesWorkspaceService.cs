@@ -318,6 +318,52 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
+    /// Lädt eine Notiz erneut aus dem Dateisystem und ersetzt ihren Arbeitsspeicherstand.
+    /// </summary>
+    /// <param name="note">Die erneut zu ladende Notiz.</param>
+    /// <param name="cancellationToken">Abbruchtoken.</param>
+    /// <returns>Der frisch geladene Notizstand.</returns>
+    /// <exception cref="FileNotFoundException">Wenn die Datei nicht mehr existiert.</exception>
+    public async Task<NoteDocument> ReloadNoteAsync(
+        NoteDocument note,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(note);
+
+        if (CurrentVault is null)
+        {
+            throw new InvalidOperationException("Es ist kein Vault geöffnet.");
+        }
+
+        // Der Repository-Scan verwendet dieselben Lade- und Parserregeln wie das normale Öffnen eines Vaults.
+        IReadOnlyList<NoteDocument> refreshedNotes =
+            await _vaultRepository.LoadAllNotesAsync(CurrentVault.RootPath, cancellationToken);
+
+        NoteDocument? refreshedNote = refreshedNotes.FirstOrDefault(candidate =>
+            string.Equals(candidate.FullPath, note.FullPath, StringComparison.OrdinalIgnoreCase));
+
+        if (refreshedNote is null)
+        {
+            throw new FileNotFoundException("Die Markdown-Datei existiert nicht mehr.", note.FullPath);
+        }
+
+        int noteIndex = _loadedNotes.FindIndex(candidate =>
+            string.Equals(candidate.FullPath, note.FullPath, StringComparison.OrdinalIgnoreCase));
+
+        if (noteIndex >= 0)
+        {
+            _loadedNotes[noteIndex] = refreshedNote;
+        }
+        else
+        {
+            _loadedNotes.Add(refreshedNote);
+            SortNotes();
+        }
+
+        return refreshedNote;
+    }
+
+    /// <summary>
     /// Ermittelt die Gliederung einer Notiz.
     /// </summary>
     public IReadOnlyList<OutlineItem> GetOutline(NoteDocument note)
