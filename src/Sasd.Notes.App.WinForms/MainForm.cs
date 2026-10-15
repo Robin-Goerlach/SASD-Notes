@@ -14,6 +14,7 @@ public partial class MainForm : Form
     private NoteDocument? _currentNote;
     private bool _suppressEditorEvents;
     private readonly System.Windows.Forms.Timer _externalChangeTimer;
+    private readonly ToolStripMenuItem _newFolderMenuItem;
     private string? _externalChangeWarningPath;
 
     /// <summary>
@@ -24,6 +25,12 @@ public partial class MainForm : Form
         _workspaceService = workspaceService;
         _editorFormattingService = editorFormattingService;
         InitializeComponent();
+
+        // Der Menüpunkt wird programmgesteuert ergänzt, weil der Dialog keine Designer-Abhängigkeit benötigt.
+        _newFolderMenuItem = new ToolStripMenuItem("Neuer Ordner...");
+        _newFolderMenuItem.Click += newFolderToolStripMenuItem_Click;
+        int newNoteIndex = fileToolStripMenuItem.DropDownItems.IndexOf(newNoteToolStripMenuItem);
+        fileToolStripMenuItem.DropDownItems.Insert(newNoteIndex, _newFolderMenuItem);
 
         // Die Prüfung läuft periodisch über den Workspace, damit die UI selbst keinen Dateisystemzugriff benötigt.
         _externalChangeTimer = new System.Windows.Forms.Timer { Interval = 2000 };
