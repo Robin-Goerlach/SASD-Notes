@@ -31,6 +31,9 @@ jobs:
       - name: Run solution tests without rebuild
         run: dotnet test Sasd.Notes.sln --configuration Release --no-build
 
+      - name: Publish WinForms release
+        run: dotnet publish .\\src\\Sasd.Notes.App.WinForms\\Sasd.Notes.App.WinForms.csproj --configuration Release --no-restore --self-contained false
+
       - name: Run package-free verification harness
         run: dotnet run --project .\\tests\\Sasd.Notes.Tests\\Sasd.Notes.Tests.csproj --configuration Release --no-build
 
