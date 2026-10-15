@@ -8,6 +8,9 @@
 - WinForms-Projekt auf das moderne `Microsoft.NET.Sdk` umgestellt
 - Vault-Pfade beim Speichern und Erzeugen neuer Notizen gegen Path Traversal abgesichert
 - .NET-8-SDK-Band in `global.json` reproduzierbarer festgelegt
+- Speichern von Markdown-Notizen gegen externe Änderungen abgesichert
+- Notizen und lokale Einstellungen werden zunächst atomar über temporäre Dateien geschrieben
+- Repository-Tests für erfolgreiches Speichern und erkannte externe Änderungen ergänzt
 
 ## 2026-07-04
 
