@@ -118,6 +118,43 @@ public partial class MainForm : Form
     }
 
     /// <summary>
+    /// Legt einen neuen Unterordner im aktuell ausgewählten Vault-Ordner an.
+    /// </summary>
+    private async void newFolderToolStripMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_workspaceService.CurrentVault is null)
+        {
+            MessageBox.Show(this, "Bitte öffnen Sie zuerst einen Vault-Ordner.", "SASD Notes", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        VaultTreeItem? selectedTreeItem = treeViewVault.SelectedNode?.Tag as VaultTreeItem;
+        string? relativeParentPath = _workspaceService.GetRelativeFolderPathForTreeItem(selectedTreeItem);
+
+        using var dialog = new NewFolderDialog();
+        if (dialog.ShowDialog(this) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.FolderName))
+        {
+            return;
+        }
+
+        try
+        {
+            string relativeFolderPath = await _workspaceService.CreateFolderAsync(dialog.FolderName, relativeParentPath);
+            RebuildTree();
+
+            string fullFolderPath = Path.Combine(
+                _workspaceService.CurrentVault.RootPath,
+                relativeFolderPath.Replace('/', Path.DirectorySeparatorChar));
+            SelectTreeNodeForPath(fullFolderPath);
+            SetStatus($"Ordner erstellt: {relativeFolderPath}");
+        }
+        catch (Exception ex)
+        {
+            ShowError("Der neue Ordner konnte nicht erstellt werden.", ex);
+        }
+    }
+
+    /// <summary>
     /// Speichert die aktuell geöffnete Notiz.
     /// </summary>
     private async void saveToolStripMenuItem_Click(object? sender, EventArgs e)
