@@ -255,9 +255,13 @@ internal static class Program
             await repository.SaveNoteAsync(temporaryVault, note);
             AssertEx.Equal(note.Content, await File.ReadAllTextAsync(notePath), "Der atomare Speichervorgang sollte den vollständigen Inhalt schreiben.");
 
+            AssertEx.False(repository.HasChangedSinceLoaded(note), "Eine unveränderte gespeicherte Notiz sollte keinen Änderungsalarm auslösen.");
+
             await File.WriteAllTextAsync(notePath, "# Extern geändert");
             File.SetLastWriteTimeUtc(notePath, note.LastModifiedUtc.AddSeconds(1));
             note.Content = "# Lokale Änderung";
+
+            AssertEx.True(repository.HasChangedSinceLoaded(note), "Eine extern geänderte Notiz sollte erkannt werden.");
 
             bool conflictDetected = false;
             try
@@ -270,6 +274,9 @@ internal static class Program
             }
 
             AssertEx.True(conflictDetected, "Externe Änderungen dürfen nicht stillschweigend überschrieben werden.");
+
+            File.Delete(notePath);
+            AssertEx.True(repository.HasChangedSinceLoaded(note), "Eine gelöschte Notiz sollte als externe Änderung gelten.");
         }
         finally
         {
