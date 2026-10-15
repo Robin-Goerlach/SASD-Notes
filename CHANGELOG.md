@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Reservierte Windows-Namen mit Erweiterung korrekt bereinigt (`CON.md` → `CON_.md`); Namensregeln plattformunabhängig getestet.
+
 - Sichere Erstellung und Anzeige leerer Vault-Unterordner im WinForms-Baum ergänzt.
 - Beim Erzeugen einer neuen Notiz wird der Dirty-State vor dem Wechsel abgefragt.
 - Markdown-Toolbar um Durchstreichen, Zitat und nummerierte Listen ergänzt.
