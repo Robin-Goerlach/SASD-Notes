@@ -11,6 +11,7 @@ Der Windows-Workflow muss für den zu veröffentlichenden Commit erfolgreich sei
 - Die Solution wird im Release-Modus kompiliert.
 - dotnet test läuft erfolgreich.
 - Der paketfreie Test-Harness läuft erfolgreich.
+- Der Windows-Test-Harness prüft verzögerte Schließbestätigung, Abbruch und erneuten Schließversuch.
 - Das WinForms-Projekt lässt sich als Release veröffentlichen.
 - Die veröffentlichte WinForms-Ausgabe wird als ZIP-CI-Artefakt bereitgestellt.
 - Es werden keine Merge-Konfliktmarker in Projekt-, Test- oder Dokumentationsdateien gefunden.
@@ -22,6 +23,7 @@ dotnet clean
 dotnet restore
 dotnet build --configuration Release
 dotnet test --configuration Release
+dotnet run --project ./tests/Sasd.Notes.WinForms.Tests/Sasd.Notes.WinForms.Tests.csproj --configuration Release
 dotnet run --project .\tests\Sasd.Notes.Tests\Sasd.Notes.Tests.csproj --configuration Release
 dotnet publish .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj --configuration Release --self-contained false
 ```
