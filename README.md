@@ -42,6 +42,7 @@ repository structure for future implementations and their documentation.
 - Open and edit Markdown notes
 - Save notes back to disk
 - Create new notes in the selected folder
+- Create and display empty vault subfolders
 - Recent Folders menu
 - Markdown editor toolbar
 - Wiki-link parser (`[[Note]]`, `[[Folder/Note]]`, `[[Note|Alias]]`)
@@ -51,6 +52,9 @@ repository structure for future implementations and their documentation.
 - Outline panel from Markdown headings
 - Info panel and status bar metrics
 - Dirty-state handling with save prompt
+- Controlled reload of externally changed notes
+- Atomic and conflict-protected note and settings saving
+- Windows-safe filename and folder normalization
 
 ## Build requirements
 
