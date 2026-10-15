@@ -188,6 +188,13 @@ public sealed class EditorFormattingService
             }
         }
 
+        // Auch der Endanker darf CRLF nicht zwischen seinen beiden Zeichen aufteilen.
+        if (lastSelectedPosition > 0 && lastSelectedPosition < text.Length &&
+            text[lastSelectedPosition] == '\n' && text[lastSelectedPosition - 1] == '\r')
+        {
+            lastSelectedPosition--;
+        }
+
         int end = Math.Max(start, lastSelectedPosition);
         while (end < text.Length && text[end] != '\r' && text[end] != '\n')
         {
