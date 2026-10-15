@@ -28,6 +28,7 @@ internal static class Program
             RunBacklinkServiceTests();
             await RunUnresolvedLinkTests();
             await RunFolderTreeTests();
+            await RunReloadNoteTests();
             await RunFileSystemRepositoryTests();
 
             Console.WriteLine("Alle SASD Notes Kernprüfungen wurden erfolgreich ausgeführt.");
@@ -328,6 +329,48 @@ internal static class Program
         public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
+        }
+    }
+
+    private static async Task RunReloadNoteTests()
+    {
+        string temporaryVault = Path.Combine(Path.GetTempPath(), "sasd-notes-reload-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temporaryVault);
+        string notePath = Path.Combine(temporaryVault, "Notiz.md");
+
+        try
+        {
+            await File.WriteAllTextAsync(notePath, "# Original");
+
+            var parser = new WikiLinkParser();
+            var resolver = new LinkResolver();
+            var workspace = new NotesWorkspaceService(
+                new FileSystemVaultRepository(parser),
+                new InMemorySettingsRepository(),
+                parser,
+                new MarkdownOutlineParser(),
+                resolver,
+                new SearchService(),
+                new BacklinkService(resolver));
+
+            await workspace.InitializeAsync();
+            await workspace.OpenVaultAsync(temporaryVault);
+            NoteDocument loadedNote = workspace.LoadedNotes.Single();
+
+            await File.WriteAllTextAsync(notePath, "# Extern geändert");
+            NoteDocument reloadedNote = await workspace.ReloadNoteAsync(loadedNote);
+
+            AssertEx.Equal("# Extern geändert", reloadedNote.Content, "Das Neuladen sollte den aktuellen Dateistand übernehmen.");
+            AssertEx.False(reloadedNote.IsDirty, "Eine neu geladene Notiz darf nicht als ungespeichert markiert sein.");
+            AssertEx.Equal("# Extern geändert", workspace.LoadedNotes.Single().Content, "Der Workspace sollte den geladenen Stand ersetzen.");
+        }
+        finally
+        {
+            // Der Test-Vault wird nach Abschluss vollständig entfernt.
+            if (Directory.Exists(temporaryVault))
+            {
+                Directory.Delete(temporaryVault, recursive: true);
+            }
         }
     }
 
