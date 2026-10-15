@@ -1,0 +1,99 @@
+name: .NET 8 Windows verification
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Clean solution
+        run: dotnet clean Sasd.Notes.sln --configuration Release
+
+      - name: Restore solution
+        run: dotnet restore Sasd.Notes.sln
+
+      - name: Build solution without restore
+        run: dotnet build Sasd.Notes.sln --configuration Release --no-restore
+
+      - name: Run solution tests without rebuild
+        run: dotnet test Sasd.Notes.sln --configuration Release --no-build
+
+      - name: Publish WinForms release
+        shell: pwsh
+        run: |
+          # Der veröffentlichte Inhalt wird in einem reproduzierbaren Artefaktverzeichnis gesammelt.
+          $publishDirectory = Join-Path $env:GITHUB_WORKSPACE "artifacts\\Sasd.Notes.WinForms"
+          dotnet publish .\\src\\Sasd.Notes.App.WinForms\\Sasd.Notes.App.WinForms.csproj --configuration Release --no-restore --self-contained false -p:PublishDir="$publishDirectory\\"
+
+      - name: Package WinForms release
+        shell: pwsh
+        run: |
+          # Ein ZIP erleichtert die manuelle Prüfung des exakt veröffentlichten CI-Stands.
+          $publishDirectory = Join-Path $env:GITHUB_WORKSPACE "artifacts\\Sasd.Notes.WinForms"
+          $archivePath = Join-Path $env:GITHUB_WORKSPACE "artifacts\\Sasd.Notes.WinForms.zip"
+          Compress-Archive -Path "$publishDirectory\\*" -DestinationPath $archivePath -Force
+
+      - name: Upload WinForms release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sasd-notes-winforms-release
+          path: artifacts/Sasd.Notes.WinForms.zip
+
+      - name: Run package-free verification harness
+        run: dotnet run --project .\\tests\\Sasd.Notes.Tests\\Sasd.Notes.Tests.csproj --configuration Release --no-build
+
+      - name: Run Windows closing regression harness
+        run: dotnet run --project ./tests/Sasd.Notes.WinForms.Tests/Sasd.Notes.WinForms.Tests.csproj --configuration Release --no-build
+
+      - name: Check for merge conflict markers
+        shell: pwsh
+        run: |
+          # Nur Projekt-, Dokumentations- und Testdateien prüfen.
+          # Die CI-Konfiguration selbst wird bewusst nicht durchsucht.
+          $scanPaths = @(
+            'src',
+            'tests',
+            'docs',
+            'spec',
+            'sample-vault',
+            'README.md',
+            'AGENTS.md',
+            'CONTRIBUTING.md',
+            'CHANGELOG.md',
+            'Sasd.Notes.sln'
+          )
+
+          $files = foreach ($path in $scanPaths) {
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+              Get-Item -LiteralPath $path
+            }
+            elseif (Test-Path -LiteralPath $path -PathType Container) {
+              Get-ChildItem -LiteralPath $path -Recurse -File
+            }
+          }
+
+          $markers = @($files | Select-String -Pattern '^(<<<<<<<|=======|>>>>>>>)')
+          if ($markers.Count -gt 0) {
+            $markers | ForEach-Object {
+              Write-Host ("{0}:{1}: {2}" -f $_.Path, $_.LineNumber, $_.Line)
+            }
+
+            throw "Merge conflict markers were found."
+          }

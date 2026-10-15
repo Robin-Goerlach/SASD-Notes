@@ -19,6 +19,7 @@ public sealed class NotesWorkspaceService
     private readonly BacklinkService _backlinkService;
     private AppSettings _settings = new();
     private readonly List<NoteDocument> _loadedNotes = new();
+    private readonly List<string> _loadedFolderPaths = new();
 
     /// <summary>
     /// Initialisiert eine neue Instanz der <see cref="NotesWorkspaceService"/>-Klasse.
@@ -115,6 +116,11 @@ public sealed class NotesWorkspaceService
         // Der neue Zustand wird erst übernommen, wenn das Laden erfolgreich abgeschlossen wurde.
         _loadedNotes.Clear();
         _loadedNotes.AddRange(notes.OrderBy(note => note.RelativePath, StringComparer.OrdinalIgnoreCase));
+
+        // Ordner werden separat geladen, damit auch leere Themenordner im Baum sichtbar bleiben.
+        _loadedFolderPaths.Clear();
+        _loadedFolderPaths.AddRange(_vaultRepository.LoadFolderPaths(normalizedVaultPath));
+
         CurrentVault = vaultInfo;
 
         await RememberRecentFolderAsync(normalizedVaultPath, cancellationToken);
@@ -144,36 +150,14 @@ public sealed class NotesWorkspaceService
 
         var knownFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // Zuerst werden alle Ordner eingetragen, damit auch leere Ordner dargestellt werden.
+        foreach (string folderPath in _loadedFolderPaths.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            AddFolderTreeItems(result, knownFolders, folderPath);
+        }
+
         foreach (NoteDocument note in _loadedNotes)
         {
-            string normalizedRelativePath = note.RelativePath.Replace('\\', '/');
-            string[] segments = normalizedRelativePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-
-            // Aus dem relativen Notizpfad werden zunächst alle Zwischenordner ermittelt.
-            if (segments.Length > 1)
-            {
-                string currentFolder = string.Empty;
-                for (int index = 0; index < segments.Length - 1; index++)
-                {
-                    currentFolder = string.IsNullOrEmpty(currentFolder)
-                        ? segments[index]
-                        : currentFolder + "/" + segments[index];
-
-                    if (!knownFolders.Add(currentFolder))
-                    {
-                        continue;
-                    }
-
-                    result.Add(new VaultTreeItem
-                    {
-                        DisplayText = segments[index],
-                        FullPath = Path.Combine(CurrentVault.RootPath, currentFolder.Replace('/', Path.DirectorySeparatorChar)),
-                        RelativePath = currentFolder,
-                        ItemType = TreeItemType.Folder
-                    });
-                }
-            }
-
             result.Add(new VaultTreeItem
             {
                 DisplayText = Path.GetFileName(note.RelativePath),
@@ -184,6 +168,39 @@ public sealed class NotesWorkspaceService
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Fügt einen Ordner und seine Zwischenordner einmalig in den fachlichen Baum ein.
+    /// </summary>
+    private void AddFolderTreeItems(
+        ICollection<VaultTreeItem> result,
+        ISet<string> knownFolders,
+        string relativeFolderPath)
+    {
+        string normalizedPath = relativeFolderPath.Replace('\\', '/');
+        string[] segments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        string currentFolder = string.Empty;
+
+        for (int index = 0; index < segments.Length; index++)
+        {
+            currentFolder = string.IsNullOrEmpty(currentFolder)
+                ? segments[index]
+                : currentFolder + "/" + segments[index];
+
+            if (!knownFolders.Add(currentFolder))
+            {
+                continue;
+            }
+
+            result.Add(new VaultTreeItem
+            {
+                DisplayText = segments[index],
+                FullPath = Path.Combine(CurrentVault!.RootPath, currentFolder.Replace('/', Path.DirectorySeparatorChar)),
+                RelativePath = currentFolder,
+                ItemType = TreeItemType.Folder
+            });
+        }
     }
 
     /// <summary>
@@ -223,6 +240,39 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
+    /// Erstellt einen neuen Unterordner im aktuellen Vault und liefert dessen relativen Pfad.
+    /// </summary>
+    /// <param name="folderName">Name des neuen Ordners.</param>
+    /// <param name="relativeParentPath">Relativer übergeordneter Ordner oder <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Abbruchtoken.</param>
+    /// <returns>Der relative Pfad des neu erstellten Ordners.</returns>
+    public async Task<string> CreateFolderAsync(
+        string folderName,
+        string? relativeParentPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (CurrentVault is null)
+        {
+            throw new InvalidOperationException("Es ist kein Vault geöffnet.");
+        }
+
+        // Die Pfad- und Namensprüfung bleibt im Infrastrukturadapter, damit alle Aufrufer dieselben Regeln verwenden.
+        string createdFolderPath = await _vaultRepository.CreateFolderAsync(
+            CurrentVault.RootPath,
+            relativeParentPath,
+            folderName,
+            cancellationToken);
+
+        // Der neue Ordner wird sofort in den Arbeitsspeicher übernommen, ohne den gesamten Vault neu zu laden.
+        if (!_loadedFolderPaths.Contains(createdFolderPath, StringComparer.OrdinalIgnoreCase))
+        {
+            _loadedFolderPaths.Add(createdFolderPath);
+        }
+
+        return createdFolderPath;
+    }
+
+    /// <summary>
     /// Ermittelt Suchtreffer innerhalb des geladenen Vaults.
     /// </summary>
     public IReadOnlyList<SearchHit> Search(string query)
@@ -237,6 +287,80 @@ public sealed class NotesWorkspaceService
     {
         NoteDocument currentSnapshot = CreateWorkingSnapshot(note);
         return _backlinkService.GetBacklinks(currentSnapshot, ReplaceOrInjectSnapshot(currentSnapshot));
+    }
+
+    /// <summary>
+    /// Ermittelt Wiki-Links der Notiz, deren Ziele im aktuellen Vault nicht existieren.
+    /// </summary>
+    /// <param name="note">Notiz, deren Links geprüft werden sollen.</param>
+    /// <returns>Die nicht auflösbaren Wiki-Links in ihrer ursprünglichen Reihenfolge.</returns>
+    public IReadOnlyList<WikiLink> GetUnresolvedLinks(NoteDocument note)
+    {
+        NoteDocument currentSnapshot = CreateWorkingSnapshot(note);
+        IReadOnlyList<NoteDocument> notes = ReplaceOrInjectSnapshot(currentSnapshot);
+
+        // Die Prüfung verwendet bewusst denselben Resolver wie die Navigation und die Backlink-Suche.
+        return currentSnapshot.Links
+            .Where(link => _linkResolver.Resolve(link.Target, notes) is null)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Liefert geladene Notizen, deren Dateien extern geändert oder gelöscht wurden.
+    /// </summary>
+    /// <returns>Notizen mit einer erkannten externen Änderung.</returns>
+    public IReadOnlyList<NoteDocument> GetExternallyChangedNotes()
+    {
+        // Die Dateisystemprüfung bleibt vollständig hinter dem Repository-Interface verborgen.
+        return _loadedNotes
+            .Where(_vaultRepository.HasChangedSinceLoaded)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Lädt eine Notiz erneut aus dem Dateisystem und ersetzt ihren Arbeitsspeicherstand.
+    /// </summary>
+    /// <param name="note">Die erneut zu ladende Notiz.</param>
+    /// <param name="cancellationToken">Abbruchtoken.</param>
+    /// <returns>Der frisch geladene Notizstand.</returns>
+    /// <exception cref="FileNotFoundException">Wenn die Datei nicht mehr existiert.</exception>
+    public async Task<NoteDocument> ReloadNoteAsync(
+        NoteDocument note,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(note);
+
+        if (CurrentVault is null)
+        {
+            throw new InvalidOperationException("Es ist kein Vault geöffnet.");
+        }
+
+        // Der Repository-Scan verwendet dieselben Lade- und Parserregeln wie das normale Öffnen eines Vaults.
+        IReadOnlyList<NoteDocument> refreshedNotes =
+            await _vaultRepository.LoadAllNotesAsync(CurrentVault.RootPath, cancellationToken);
+
+        NoteDocument? refreshedNote = refreshedNotes.FirstOrDefault(candidate =>
+            string.Equals(candidate.FullPath, note.FullPath, StringComparison.OrdinalIgnoreCase));
+
+        if (refreshedNote is null)
+        {
+            throw new FileNotFoundException("Die Markdown-Datei existiert nicht mehr.", note.FullPath);
+        }
+
+        int noteIndex = _loadedNotes.FindIndex(candidate =>
+            string.Equals(candidate.FullPath, note.FullPath, StringComparison.OrdinalIgnoreCase));
+
+        if (noteIndex >= 0)
+        {
+            _loadedNotes[noteIndex] = refreshedNote;
+        }
+        else
+        {
+            _loadedNotes.Add(refreshedNote);
+            SortNotes();
+        }
+
+        return refreshedNote;
     }
 
     /// <summary>

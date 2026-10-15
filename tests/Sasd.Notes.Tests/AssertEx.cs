@@ -26,4 +26,15 @@ internal static class AssertEx
             throw new InvalidOperationException(message);
         }
     }
+
+    /// <summary>
+    /// Prüft, dass eine boolesche Bedingung nicht erfüllt ist.
+    /// </summary>
+    public static void False(bool condition, string message)
+    {
+        if (condition)
+        {
+            throw new InvalidOperationException(message);
+        }
+    }
 }

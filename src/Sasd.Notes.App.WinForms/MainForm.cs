@@ -13,6 +13,12 @@ public partial class MainForm : Form
     private readonly EditorFormattingService _editorFormattingService;
     private NoteDocument? _currentNote;
     private bool _suppressEditorEvents;
+    private readonly System.Windows.Forms.Timer _externalChangeTimer;
+    private readonly ToolStripMenuItem _newFolderMenuItem;
+    private readonly ToolStripMenuItem _reloadNoteMenuItem;
+    private string? _externalChangeWarningPath;
+    private bool _closeConfirmationInProgress;
+    private bool _closeApproved;
 
     /// <summary>
     /// Initialisiert eine neue Instanz der <see cref="MainForm"/>-Klasse.
@@ -22,6 +28,60 @@ public partial class MainForm : Form
         _workspaceService = workspaceService;
         _editorFormattingService = editorFormattingService;
         InitializeComponent();
+        AddAdditionalFormattingButtons();
+
+        // Der Menüpunkt wird programmgesteuert ergänzt, weil der Dialog keine Designer-Abhängigkeit benötigt.
+        _newFolderMenuItem = new ToolStripMenuItem("Neuer Ordner...");
+        _newFolderMenuItem.Click += newFolderToolStripMenuItem_Click;
+        int newNoteIndex = fileToolStripMenuItem.DropDownItems.IndexOf(newNoteToolStripMenuItem);
+        fileToolStripMenuItem.DropDownItems.Insert(newNoteIndex, _newFolderMenuItem);
+
+        _reloadNoteMenuItem = new ToolStripMenuItem("Aktuelle Notiz neu laden")
+        {
+            ShortcutKeys = Keys.F6
+        };
+        _reloadNoteMenuItem.Click += reloadNoteToolStripMenuItem_Click;
+        int refreshIndex = fileToolStripMenuItem.DropDownItems.IndexOf(refreshVaultToolStripMenuItem);
+        fileToolStripMenuItem.DropDownItems.Insert(refreshIndex + 1, _reloadNoteMenuItem);
+
+        // Die Prüfung läuft periodisch über den Workspace, damit die UI selbst keinen Dateisystemzugriff benötigt.
+        _externalChangeTimer = new System.Windows.Forms.Timer { Interval = 2000 };
+        _externalChangeTimer.Tick += externalChangeTimer_Tick;
+        _externalChangeTimer.Start();
+    }
+
+    /// <summary>
+    /// Ergänzt die Formatierungsbefehle, die im Designer nicht benötigt werden.
+    /// </summary>
+    private void AddAdditionalFormattingButtons()
+    {
+        var strikethroughButton = CreateFormattingButton("Durch", MarkdownFormatKind.Strikethrough);
+        var quoteButton = CreateFormattingButton("Zitat", MarkdownFormatKind.Quote);
+        var numberedListButton = CreateFormattingButton("1. Liste", MarkdownFormatKind.NumberedList);
+
+        // Die zusätzlichen Befehle werden neben den bestehenden Listen- und Inline-Befehlen eingeordnet.
+        int insertIndex = toolStripMain.Items.IndexOf(toolStripButtonCode) + 1;
+        toolStripMain.Items.Insert(insertIndex, strikethroughButton);
+        toolStripMain.Items.Insert(insertIndex + 1, quoteButton);
+        toolStripMain.Items.Insert(insertIndex + 2, numberedListButton);
+    }
+
+    /// <summary>
+    /// Erzeugt einen einheitlich konfigurierten Markdown-Toolbarbutton.
+    /// </summary>
+    /// <param name="caption">Kurze Beschriftung des Buttons.</param>
+    /// <param name="formatKind">Anzuwendende Markdown-Formatierung.</param>
+    /// <returns>Konfigurierter Toolbarbutton.</returns>
+    private ToolStripButton CreateFormattingButton(string caption, MarkdownFormatKind formatKind)
+    {
+        var button = new ToolStripButton(caption)
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.Text,
+            Tag = formatKind
+        };
+
+        button.Click += toolStripFormatButton_Click;
+        return button;
     }
 
     /// <summary>
@@ -81,6 +141,12 @@ public partial class MainForm : Form
             return;
         }
 
+        // Das Öffnen der neuen Notiz ersetzt den Editorinhalt und darf daher keine ungesicherten Änderungen verwerfen.
+        if (!await ConfirmSaveChangesIfRequiredAsync())
+        {
+            return;
+        }
+
         VaultTreeItem? selectedTreeItem = treeViewVault.SelectedNode?.Tag as VaultTreeItem;
         string? relativeFolderPath = _workspaceService.GetRelativeFolderPathForTreeItem(selectedTreeItem);
 
@@ -100,6 +166,82 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             ShowError("Die neue Notiz konnte nicht erstellt werden.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Legt einen neuen Unterordner im aktuell ausgewählten Vault-Ordner an.
+    /// </summary>
+    private async void newFolderToolStripMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_workspaceService.CurrentVault is null)
+        {
+            MessageBox.Show(this, "Bitte öffnen Sie zuerst einen Vault-Ordner.", "SASD Notes", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        VaultTreeItem? selectedTreeItem = treeViewVault.SelectedNode?.Tag as VaultTreeItem;
+        string? relativeParentPath = _workspaceService.GetRelativeFolderPathForTreeItem(selectedTreeItem);
+
+        using var dialog = new NewFolderDialog();
+        if (dialog.ShowDialog(this) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.FolderName))
+        {
+            return;
+        }
+
+        try
+        {
+            string relativeFolderPath = await _workspaceService.CreateFolderAsync(dialog.FolderName, relativeParentPath);
+            RebuildTree();
+
+            string fullFolderPath = Path.Combine(
+                _workspaceService.CurrentVault.RootPath,
+                relativeFolderPath.Replace('/', Path.DirectorySeparatorChar));
+            SelectTreeNodeForPath(fullFolderPath);
+            SetStatus($"Ordner erstellt: {relativeFolderPath}");
+        }
+        catch (Exception ex)
+        {
+            ShowError("Der neue Ordner konnte nicht erstellt werden.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Lädt die aktuelle Notiz nach einer bestätigten Verwerfung lokaler Änderungen neu.
+    /// </summary>
+    private async void reloadNoteToolStripMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_currentNote is null)
+        {
+            SetStatus("Keine Notiz zum Neuladen geöffnet.");
+            return;
+        }
+
+        if (_currentNote.IsDirty)
+        {
+            DialogResult result = MessageBox.Show(
+                this,
+                "Die aktuelle Notiz enthält ungespeicherte Änderungen. " +
+                "Sollen diese Änderungen verworfen und die Datei neu geladen werden?",
+                "SASD Notes",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result != DialogResult.Yes)
+            {
+                return;
+            }
+        }
+
+        try
+        {
+            NoteDocument reloadedNote = await _workspaceService.ReloadNoteAsync(_currentNote);
+            OpenNoteInEditor(reloadedNote);
+            SetStatus($"Notiz neu geladen: {reloadedNote.RelativePath}");
+        }
+        catch (Exception ex)
+        {
+            ShowError("Die aktuelle Notiz konnte nicht neu geladen werden.", ex);
         }
     }
 
@@ -323,11 +465,61 @@ public partial class MainForm : Form
     /// </summary>
     private async void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
-        bool mayClose = await ConfirmSaveChangesIfRequiredAsync();
-        if (!mayClose)
+        if (_closeApproved || e.Cancel)
         {
-            e.Cancel = true;
+            return;
         }
+
+        // WinForms wartet nicht auf async-void-Handler: Der erste Versuch muss vor dem await abgebrochen werden.
+        e.Cancel = true;
+        if (_closeConfirmationInProgress)
+        {
+            return;
+        }
+
+        _closeConfirmationInProgress = true;
+        bool wasEnabled = Enabled;
+        Enabled = false;
+
+        try
+        {
+            if (!await ConfirmSaveChangesIfRequiredAsync())
+            {
+                return;
+            }
+
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            // Ein zweiter Schließversuch läuft erst nach vollständig abgeschlossener Bestätigung bzw. Speicherung.
+            _closeApproved = true;
+            BeginInvoke(new Action(Close));
+        }
+        catch (Exception ex)
+        {
+            ShowError("Das Fenster konnte nicht sicher geschlossen werden.", ex);
+        }
+        finally
+        {
+            _closeConfirmationInProgress = false;
+            if (!IsDisposed && !Disposing)
+            {
+                Enabled = wasEnabled;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gibt die periodische Änderungsprüfung nach dem tatsächlichen Schließen frei.
+    /// </summary>
+    /// <param name="e">Informationen über den abgeschlossenen Schließvorgang.</param>
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        // Bei abgebrochenem Schließen bleibt der Timer aktiv; beim endgültigen Schließen wird er freigegeben.
+        _externalChangeTimer.Dispose();
+        base.OnFormClosed(e);
     }
 
     /// <summary>
@@ -384,7 +576,15 @@ public partial class MainForm : Form
 
         treeViewVault.Nodes.Add(rootNode);
 
-        // Der Baum wird aus relativen Pfaden rekonstruiert und alphabetisch erweitert.
+        // Zuerst werden Ordner eingetragen, damit auch leere Ordner sichtbar bleiben.
+        foreach (VaultTreeItem folder in _workspaceService.BuildTreeItems()
+                     .Where(item => item.ItemType == TreeItemType.Folder)
+                     .OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase))
+        {
+            AddFolderNode(rootNode, folder);
+        }
+
+        // Anschließend werden die Markdown-Dateien in die bereits vorhandenen Ordner einsortiert.
         foreach (NoteDocument note in _workspaceService.LoadedNotes.OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase))
         {
             AddNoteNode(rootNode, note);
@@ -395,6 +595,47 @@ public partial class MainForm : Form
         toolStripStatusVault.Text = currentVault.RootPath;
     }
 
+    /// <summary>
+    /// Fügt einen vorhandenen Ordnerknoten inklusive Zwischenordnern in die TreeView ein.
+    /// </summary>
+    private void AddFolderNode(TreeNode rootNode, VaultTreeItem folder)
+    {
+        string normalizedPath = folder.RelativePath.Replace(Path.DirectorySeparatorChar, '/');
+        string[] parts = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        TreeNode currentNode = rootNode;
+        string currentRelativePath = string.Empty;
+
+        foreach (string part in parts)
+        {
+            currentRelativePath = string.IsNullOrEmpty(currentRelativePath)
+                ? part
+                : currentRelativePath + "/" + part;
+
+            TreeNode? existingNode = currentNode.Nodes
+                .Cast<TreeNode>()
+                .FirstOrDefault(node => string.Equals(node.Text, part, StringComparison.OrdinalIgnoreCase) &&
+                                        node.Tag is VaultTreeItem item &&
+                                        item.ItemType == TreeItemType.Folder);
+
+            if (existingNode is null)
+            {
+                existingNode = new TreeNode(part)
+                {
+                    Tag = new VaultTreeItem
+                    {
+                        DisplayText = part,
+                        FullPath = Path.Combine(_workspaceService.CurrentVault!.RootPath, currentRelativePath.Replace('/', Path.DirectorySeparatorChar)),
+                        RelativePath = currentRelativePath,
+                        ItemType = TreeItemType.Folder
+                    }
+                };
+
+                currentNode.Nodes.Add(existingNode);
+            }
+
+            currentNode = existingNode;
+        }
+    }
     /// <summary>
     /// Fügt eine Notiz inklusive benötigter Zwischenordner in die TreeView ein.
     /// </summary>
@@ -451,6 +692,7 @@ public partial class MainForm : Form
     private void OpenNoteInEditor(NoteDocument note)
     {
         _currentNote = note;
+        _externalChangeWarningPath = null;
         _suppressEditorEvents = true;
         richTextBoxEditor.Text = note.Content;
         _suppressEditorEvents = false;
@@ -560,6 +802,8 @@ public partial class MainForm : Form
 
         if (_currentNote is not null)
         {
+            IReadOnlyList<WikiLink> unresolvedLinks = _workspaceService.GetUnresolvedLinks(_currentNote);
+
             foreach (BacklinkInfo backlink in _workspaceService.GetBacklinks(_currentNote))
             {
                 listBoxBacklinks.Items.Add(backlink);
@@ -574,6 +818,7 @@ public partial class MainForm : Form
                                $"Relativer Pfad: {_currentNote.RelativePath}{Environment.NewLine}" +
                                $"Letzte Änderung (UTC): {_currentNote.LastModifiedUtc:u}{Environment.NewLine}" +
                                $"Wiki-Links: {_currentNote.Links.Count}{Environment.NewLine}" +
+                               $"Nicht auflösbare Links: {FormatUnresolvedLinks(unresolvedLinks)}{Environment.NewLine}" +
                                $"Status: {(_currentNote.IsDirty ? "ungespeichert" : "gespeichert")}";
         }
         else
@@ -583,6 +828,22 @@ public partial class MainForm : Form
 
         listBoxBacklinks.EndUpdate();
         listBoxOutline.EndUpdate();
+    }
+
+    /// <summary>
+    /// Formatiert die nicht auflösbaren Linkziele für das Info-Panel.
+    /// </summary>
+    /// <param name="unresolvedLinks">Nicht auflösbare Links der aktuellen Notiz.</param>
+    /// <returns>Anzahl und Ziele in kompakter Darstellung.</returns>
+    private static string FormatUnresolvedLinks(IReadOnlyList<WikiLink> unresolvedLinks)
+    {
+        if (unresolvedLinks.Count == 0)
+        {
+            return "0";
+        }
+
+        string targets = string.Join(", ", unresolvedLinks.Select(link => link.Target));
+        return $"{unresolvedLinks.Count} ({targets})";
     }
 
     /// <summary>
@@ -675,6 +936,32 @@ public partial class MainForm : Form
     }
 
     /// <summary>
+    /// Prüft regelmäßig, ob die aktuell geladenen Notizen extern geändert wurden.
+    /// </summary>
+    private void externalChangeTimer_Tick(object? sender, EventArgs e)
+    {
+        IReadOnlyList<NoteDocument> changedNotes = _workspaceService.GetExternallyChangedNotes();
+        NoteDocument? currentChangedNote = _currentNote is null
+            ? null
+            : changedNotes.FirstOrDefault(note =>
+                string.Equals(note.FullPath, _currentNote.FullPath, StringComparison.OrdinalIgnoreCase));
+
+        if (currentChangedNote is null)
+        {
+            return;
+        }
+
+        // Die Meldung wird pro Datei nur einmal angezeigt, damit der Timer keine Statusflut erzeugt.
+        if (string.Equals(_externalChangeWarningPath, currentChangedNote.FullPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _externalChangeWarningPath = currentChangedNote.FullPath;
+        SetStatus($"Warnung: Datei extern geändert oder gelöscht: {currentChangedNote.RelativePath}");
+    }
+
+    /// <summary>
     /// Zeigt einen Fehler verständlich an.
     /// </summary>
     private void ShowError(string userMessage, Exception exception)
@@ -686,7 +973,8 @@ public partial class MainForm : Form
     /// <summary>
     /// Fragt bei ungespeicherten Änderungen ab, ob gespeichert werden soll.
     /// </summary>
-    private async Task<bool> ConfirmSaveChangesIfRequiredAsync()
+    /// <returns>Ob der angeforderte Wechsel oder Schließvorgang fortgesetzt werden darf.</returns>
+    protected virtual async Task<bool> ConfirmSaveChangesIfRequiredAsync()
     {
         if (_currentNote?.IsDirty != true)
         {

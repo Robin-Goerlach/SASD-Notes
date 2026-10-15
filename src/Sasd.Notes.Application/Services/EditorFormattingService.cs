@@ -164,18 +164,44 @@ public sealed class EditorFormattingService
         int selectionLength)
     {
         int start = selectionStart;
-        int end = selectionStart + selectionLength;
 
-        while (start > 0 && text[start - 1] != '\n')
+        // Eine Position innerhalb von CRLF gehört noch zum Ende der vorherigen Zeile.
+        if (start > 0 && start < text.Length && text[start] == '\n' && text[start - 1] == '\r')
         {
             start--;
         }
 
-        while (end < text.Length && text[end] != '\n')
+        while (start > 0 && text[start - 1] != '\r' && text[start - 1] != '\n')
+        {
+            start--;
+        }
+
+        int lastSelectedPosition = selectionStart + selectionLength;
+        if (selectionLength > 0)
+        {
+            // Das Auswahlende ist exklusiv. Ein markierter Zeilenumbruch darf die nächste Zeile nicht einbeziehen.
+            lastSelectedPosition--;
+            while (lastSelectedPosition > start &&
+                   (text[lastSelectedPosition] == '\r' || text[lastSelectedPosition] == '\n'))
+            {
+                lastSelectedPosition--;
+            }
+        }
+
+        // Auch der Endanker darf CRLF nicht zwischen seinen beiden Zeichen aufteilen.
+        if (lastSelectedPosition > 0 && lastSelectedPosition < text.Length &&
+            text[lastSelectedPosition] == '\n' && text[lastSelectedPosition - 1] == '\r')
+        {
+            lastSelectedPosition--;
+        }
+
+        int end = Math.Max(start, lastSelectedPosition);
+        while (end < text.Length && text[end] != '\r' && text[end] != '\n')
         {
             end++;
         }
 
+        // Der letzte Zeilenumbruch bleibt außerhalb des ersetzten Blocks und damit unverändert erhalten.
         return (start, end);
     }
 

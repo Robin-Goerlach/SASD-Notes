@@ -25,7 +25,7 @@ public sealed class BacklinkInfo
     /// </summary>
     public override string ToString()
     {
-        return $"{SourceTitle} — {ContextSnippet}";
+        return $"{SourceTitle} — {SourceRelativePath} — {ContextSnippet}";
     }
 
 }
