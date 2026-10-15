@@ -46,4 +46,18 @@ public interface IVaultRepository
     /// <param name="cancellationToken">Abbruchtoken.</param>
     /// <returns>Die neu erstellte Notiz.</returns>
     Task<NoteDocument> CreateNoteAsync(string vaultPath, string? relativeFolderPath, string title, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Erstellt einen neuen Unterordner innerhalb des Vaults.
+    /// </summary>
+    /// <param name="vaultPath">Pfad zum Vault-Wurzelverzeichnis.</param>
+    /// <param name="relativeParentPath">Relativer übergeordneter Ordner oder <see langword="null"/>.</param>
+    /// <param name="folderName">Name des neuen Ordners.</param>
+    /// <param name="cancellationToken">Abbruchtoken.</param>
+    /// <returns>Der relative Pfad des neu erstellten Ordners.</returns>
+    Task<string> CreateFolderAsync(
+        string vaultPath,
+        string? relativeParentPath,
+        string folderName,
+        CancellationToken cancellationToken = default);
 }
