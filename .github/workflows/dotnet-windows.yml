@@ -1,0 +1,43 @@
+name: .NET 8 Windows verification
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore solution
+        run: dotnet restore Sasd.Notes.sln
+
+      - name: Build solution without restore
+        run: dotnet build Sasd.Notes.sln --configuration Release --no-restore
+
+      - name: Run solution tests without rebuild
+        run: dotnet test Sasd.Notes.sln --configuration Release --no-build
+
+      - name: Run package-free verification harness
+        run: dotnet run --project .\tests\Sasd.Notes.Tests\Sasd.Notes.Tests.csproj --configuration Release --no-build
+
+      - name: Check for merge conflict markers
+        shell: pwsh
+        run: |
+          $markers = git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- .
+          if ($LASTEXITCODE -eq 0) {
+            Write-Error "Merge conflict markers were found."
+          }
