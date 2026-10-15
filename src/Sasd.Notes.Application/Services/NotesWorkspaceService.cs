@@ -256,6 +256,18 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
+    /// Liefert geladene Notizen, deren Dateien extern geändert oder gelöscht wurden.
+    /// </summary>
+    /// <returns>Notizen mit einer erkannten externen Änderung.</returns>
+    public IReadOnlyList<NoteDocument> GetExternallyChangedNotes()
+    {
+        // Die Dateisystemprüfung bleibt vollständig hinter dem Repository-Interface verborgen.
+        return _loadedNotes
+            .Where(_vaultRepository.HasChangedSinceLoaded)
+            .ToList();
+    }
+
+    /// <summary>
     /// Ermittelt die Gliederung einer Notiz.
     /// </summary>
     public IReadOnlyList<OutlineItem> GetOutline(NoteDocument note)
