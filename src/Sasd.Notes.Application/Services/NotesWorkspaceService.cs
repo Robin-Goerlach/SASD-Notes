@@ -240,6 +240,22 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
+    /// Ermittelt Wiki-Links der Notiz, deren Ziele im aktuellen Vault nicht existieren.
+    /// </summary>
+    /// <param name="note">Notiz, deren Links geprüft werden sollen.</param>
+    /// <returns>Die nicht auflösbaren Wiki-Links in ihrer ursprünglichen Reihenfolge.</returns>
+    public IReadOnlyList<WikiLink> GetUnresolvedLinks(NoteDocument note)
+    {
+        NoteDocument currentSnapshot = CreateWorkingSnapshot(note);
+        IReadOnlyList<NoteDocument> notes = ReplaceOrInjectSnapshot(currentSnapshot);
+
+        // Die Prüfung verwendet bewusst denselben Resolver wie die Navigation und die Backlink-Suche.
+        return currentSnapshot.Links
+            .Where(link => _linkResolver.Resolve(link.Target, notes) is null)
+            .ToList();
+    }
+
+    /// <summary>
     /// Ermittelt die Gliederung einer Notiz.
     /// </summary>
     public IReadOnlyList<OutlineItem> GetOutline(NoteDocument note)
