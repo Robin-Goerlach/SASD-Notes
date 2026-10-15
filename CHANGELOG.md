@@ -13,6 +13,7 @@
 - Repository-Tests für erfolgreiches Speichern und erkannte externe Änderungen ergänzt
 - Nicht auflösbare Wiki-Links werden im Info-Bereich angezeigt
 - Warnung bei extern geänderten oder gelöschten Notizen ergänzt
+- Such- und Backlink-Treffer zeigen jetzt auch ihre relativen Pfade an
 
 ## 2026-07-04
 
