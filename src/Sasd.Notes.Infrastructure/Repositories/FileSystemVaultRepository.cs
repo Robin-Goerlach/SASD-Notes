@@ -73,13 +73,27 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             throw new InvalidOperationException("Es dürfen nur Markdown-Dateien gespeichert werden.");
         }
 
+        if (!File.Exists(normalizedNotePath))
+        {
+            throw new FileNotFoundException("Die zu speichernde Markdown-Datei wurde nicht gefunden.", normalizedNotePath);
+        }
+
+        // Verhindert, dass Änderungen eines anderen Editors stillschweigend überschrieben werden.
+        DateTime currentLastModifiedUtc = File.GetLastWriteTimeUtc(normalizedNotePath);
+        if (note.LastModifiedUtc != default && currentLastModifiedUtc != note.LastModifiedUtc)
+        {
+            throw new IOException(
+                "Die Markdown-Datei wurde seit dem Laden extern geändert. " +
+                "Bitte laden Sie den Vault neu und prüfen Sie die Änderungen.");
+        }
+
         string? directory = Path.GetDirectoryName(normalizedNotePath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
-        await File.WriteAllTextAsync(normalizedNotePath, note.Content, cancellationToken);
+        await WriteTextAtomicallyAsync(normalizedNotePath, note.Content, cancellationToken);
         note.LastModifiedUtc = File.GetLastWriteTimeUtc(normalizedNotePath);
     }
 
@@ -146,6 +160,53 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             }
 
             suffix++;
+        }
+    }
+
+    /// <summary>
+    /// Schreibt Text über eine temporäre Datei und ersetzt anschließend das Ziel.
+    /// </summary>
+    /// <param name="targetPath">Endgültiger Pfad der Datei.</param>
+    /// <param name="content">Zu speichernder Inhalt.</param>
+    /// <param name="cancellationToken">Token zum kontrollierten Abbrechen.</param>
+    private static async Task WriteTextAtomicallyAsync(
+        string targetPath,
+        string content,
+        CancellationToken cancellationToken)
+    {
+        string temporaryPath = targetPath + ".sasd-tmp-" + Guid.NewGuid().ToString("N");
+
+        try
+        {
+            // Die temporäre Datei liegt im selben Verzeichnis, damit der spätere Austausch innerhalb desselben Dateisystems bleibt.
+            await using (FileStream stream = new(
+                temporaryPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 4096,
+                options: FileOptions.SequentialScan | FileOptions.WriteThrough))
+            await using (var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                await writer.WriteAsync(content.AsMemory(), cancellationToken);
+                await writer.FlushAsync(cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+            }
+
+            // Der Austausch erfolgt erst, wenn der vollständige neue Inhalt sicher geschrieben wurde.
+            File.Replace(temporaryPath, targetPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+        }
+        catch (PlatformNotSupportedException)
+        {
+            // File.Replace ist auf einzelnen Dateisystemen nicht verfügbar; Move ersetzt dort ebenfalls innerhalb des Zielverzeichnisses.
+            File.Move(temporaryPath, targetPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
         }
     }
 
