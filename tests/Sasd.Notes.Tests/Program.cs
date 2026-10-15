@@ -24,6 +24,7 @@ internal static class Program
             RunSearchServiceTests();
             RunDisplayFormattingTests();
             RunEditorFormattingTests();
+            RunFormatterLineBoundaryTests();
             RunLinkResolverTests();
             RunBacklinkServiceTests();
             await RunUnresolvedLinkTests();
@@ -179,6 +180,43 @@ internal static class Program
             500,
             MarkdownFormatKind.Italic);
         AssertEx.Equal("*Äpfel 😀*", unicode.UpdatedText, "Unicode und ungültige Auswahlgrenzen müssen verarbeitet werden.");
+    }
+
+    /// <summary>
+    /// Prüft exklusive Auswahlenden und den unveränderten Erhalt angrenzender Zeilenumbrüche.
+    /// </summary>
+    private static void RunFormatterLineBoundaryTests()
+    {
+        var formatter = new EditorFormattingService();
+
+        foreach (string newline in new[] { "\n", "\r\n" })
+        {
+            string text = "Erste" + newline + "Zweite" + newline + "Dritte";
+            int secondLineStart = "Erste".Length + newline.Length;
+
+            TextSelectionTransformResult firstLine = formatter.Apply(
+                text, 0, secondLineStart, MarkdownFormatKind.BulletList);
+            AssertEx.Equal("- Erste" + newline + "Zweite" + newline + "Dritte", firstLine.UpdatedText,
+                "Eine Auswahl bis zum nächsten Zeilenanfang darf die nächste Zeile nicht formatieren.");
+            AssertEx.Equal(0, firstLine.SelectionStart, "Die Auswahl soll am formatierten Zeilenanfang beginnen.");
+            AssertEx.Equal(7, firstLine.SelectionLength, "Die Auswahl soll den unveränderten folgenden Zeilenumbruch ausschließen.");
+
+            TextSelectionTransformResult caret = formatter.Apply(
+                text, 2, 0, MarkdownFormatKind.Quote);
+            AssertEx.Equal("> Erste" + newline + "Zweite" + newline + "Dritte", caret.UpdatedText,
+                "Formatieren ohne Auswahl darf keinen zusätzlichen Zeilenumbruch erzeugen.");
+
+            TextSelectionTransformResult secondLine = formatter.Apply(
+                text, secondLineStart, 3, MarkdownFormatKind.Heading2);
+            AssertEx.Equal("Erste" + newline + "## Zweite" + newline + "Dritte", secondLine.UpdatedText,
+                "Nur die ausgewählte mittlere Zeile soll formatiert werden.");
+
+            string terminatedText = "Erste" + newline + "Zweite" + newline;
+            TextSelectionTransformResult numbered = formatter.Apply(
+                terminatedText, 0, terminatedText.Length, MarkdownFormatKind.NumberedList);
+            AssertEx.Equal("1. Erste" + newline + "2. Zweite" + newline, numbered.UpdatedText,
+                "Nummerierte Listen müssen den abschließenden Zeilenumbruch exakt erhalten.");
+        }
     }
 
     private static void RunDisplayFormattingTests()
