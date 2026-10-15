@@ -12,6 +12,7 @@ Der Windows-Workflow muss für den zu veröffentlichenden Commit erfolgreich sei
 - dotnet test läuft erfolgreich.
 - Der paketfreie Test-Harness läuft erfolgreich.
 - Das WinForms-Projekt lässt sich als Release veröffentlichen.
+- Die veröffentlichte WinForms-Ausgabe wird als ZIP-CI-Artefakt bereitgestellt.
 - Es werden keine Merge-Konfliktmarker in Projekt-, Test- oder Dokumentationsdateien gefunden.
 
 ## Lokale Prüfung unter Windows
