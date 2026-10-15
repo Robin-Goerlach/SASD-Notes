@@ -439,7 +439,15 @@ public partial class MainForm : Form
 
         treeViewVault.Nodes.Add(rootNode);
 
-        // Der Baum wird aus relativen Pfaden rekonstruiert und alphabetisch erweitert.
+        // Zuerst werden Ordner eingetragen, damit auch leere Ordner sichtbar bleiben.
+        foreach (VaultTreeItem folder in _workspaceService.BuildTreeItems()
+                     .Where(item => item.ItemType == TreeItemType.Folder)
+                     .OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase))
+        {
+            AddFolderNode(rootNode, folder);
+        }
+
+        // Anschließend werden die Markdown-Dateien in die bereits vorhandenen Ordner einsortiert.
         foreach (NoteDocument note in _workspaceService.LoadedNotes.OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase))
         {
             AddNoteNode(rootNode, note);
