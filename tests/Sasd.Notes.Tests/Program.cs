@@ -1,6 +1,7 @@
 using Sasd.Notes.Application.Services;
 using Sasd.Notes.Domain.Services;
 using Sasd.Notes.Domain.Models;
+using Sasd.Notes.Infrastructure.Repositories;
 
 namespace Sasd.Notes.Tests;
 
@@ -12,7 +13,7 @@ internal static class Program
     /// <summary>
     /// Führt einige Kernprüfungen der Fachlogik aus.
     /// </summary>
-    private static int Main()
+    private static async Task<int> Main()
     {
         try
         {
@@ -22,6 +23,7 @@ internal static class Program
             RunEditorFormattingTests();
             RunLinkResolverTests();
             RunBacklinkServiceTests();
+            await RunFileSystemRepositoryTests();
 
             Console.WriteLine("Alle SASD Notes Kernprüfungen wurden erfolgreich ausgeführt.");
             return 0;
@@ -172,5 +174,50 @@ internal static class Program
         IReadOnlyList<BacklinkInfo> backlinks = backlinkService.GetBacklinks(target, new[] { target, source });
         AssertEx.Equal(1, backlinks.Count, "BacklinkService sollte den Rückverweis finden.");
         AssertEx.Equal("Quelle.md", backlinks[0].SourceRelativePath, "Der Quellpfad des Backlinks sollte erhalten bleiben.");
+    }
+
+    private static async Task RunFileSystemRepositoryTests()
+    {
+        string temporaryVault = Path.Combine(Path.GetTempPath(), "sasd-notes-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temporaryVault);
+
+        try
+        {
+            string notePath = Path.Combine(temporaryVault, "Notiz.md");
+            await File.WriteAllTextAsync(notePath, "# Ursprünglich\n\nInhalt");
+
+            var repository = new FileSystemVaultRepository(new WikiLinkParser());
+            IReadOnlyList<NoteDocument> notes = await repository.LoadAllNotesAsync(temporaryVault);
+            AssertEx.Equal(1, notes.Count, "Das Repository sollte die Markdown-Datei laden.");
+
+            NoteDocument note = notes[0];
+            note.Content = "# Aktualisiert\n\nÄnderung 😀";
+            await repository.SaveNoteAsync(temporaryVault, note);
+            AssertEx.Equal(note.Content, await File.ReadAllTextAsync(notePath), "Der atomare Speichervorgang sollte den vollständigen Inhalt schreiben.");
+
+            await File.WriteAllTextAsync(notePath, "# Extern geändert");
+            File.SetLastWriteTimeUtc(notePath, note.LastModifiedUtc.AddSeconds(1));
+            note.Content = "# Lokale Änderung";
+
+            bool conflictDetected = false;
+            try
+            {
+                await repository.SaveNoteAsync(temporaryVault, note);
+            }
+            catch (IOException)
+            {
+                conflictDetected = true;
+            }
+
+            AssertEx.True(conflictDetected, "Externe Änderungen dürfen nicht stillschweigend überschrieben werden.");
+        }
+        finally
+        {
+            // Der Test hinterlässt keine temporären Benutzerdaten.
+            if (Directory.Exists(temporaryVault))
+            {
+                Directory.Delete(temporaryVault, recursive: true);
+            }
+        }
     }
 }
