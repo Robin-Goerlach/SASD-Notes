@@ -18,6 +18,7 @@ internal static class Program
     {
         try
         {
+            RunFileNameHelperTests();
             RunWikiLinkParserTests();
             RunOutlineParserTests();
             RunSearchServiceTests();
@@ -37,6 +38,14 @@ internal static class Program
             Console.Error.WriteLine("Testfehler: " + ex.Message);
             return 1;
         }
+    }
+
+    private static void RunFileNameHelperTests()
+    {
+        AssertEx.Equal("Projektplan", FileNameHelper.ToSafeFileName(" Projektplan "), "Normale Dateinamen sollten lesbar normalisiert werden.");
+        AssertEx.Equal("Notiz", FileNameHelper.ToSafeFileName("Notiz..."), "Abschließende Punkte sollten entfernt werden.");
+        AssertEx.Equal("CON_", FileNameHelper.ToSafeFileName("CON"), "Reservierte Windows-Gerätenamen müssen entschärft werden.");
+        AssertEx.Equal("Neue Notiz", FileNameHelper.ToSafeFileName("///"), "Ein vollständig ungültiger Titel benötigt einen sicheren Fallback.");
     }
 
     private static void RunWikiLinkParserTests()
