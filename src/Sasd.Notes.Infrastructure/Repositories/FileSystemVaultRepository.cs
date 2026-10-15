@@ -28,6 +28,22 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     }
 
     /// <inheritdoc />
+    public IReadOnlyList<string> LoadFolderPaths(string vaultPath)
+    {
+        string normalizedVaultPath = Path.GetFullPath(vaultPath);
+        if (!Directory.Exists(normalizedVaultPath))
+        {
+            throw new DirectoryNotFoundException($"Der Vault-Ordner wurde nicht gefunden: {vaultPath}");
+        }
+
+        // Leere Ordner müssen ebenfalls im Navigationsbaum erscheinen und werden deshalb unabhängig von Notizen geladen.
+        return Directory.GetDirectories(normalizedVaultPath, "*", SearchOption.AllDirectories)
+            .Select(path => Path.GetRelativePath(normalizedVaultPath, path).Replace('\\', '/'))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<NoteDocument>> LoadAllNotesAsync(string vaultPath, CancellationToken cancellationToken = default)
     {
         string normalizedVaultPath = Path.GetFullPath(vaultPath);
