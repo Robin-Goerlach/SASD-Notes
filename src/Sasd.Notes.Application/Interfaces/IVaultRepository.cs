@@ -60,4 +60,11 @@ public interface IVaultRepository
         string? relativeParentPath,
         string folderName,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lädt die vorhandenen Unterordner eines Vaults rekursiv.
+    /// </summary>
+    /// <param name="vaultPath">Pfad zum Vault-Wurzelverzeichnis.</param>
+    /// <returns>Relative Unterordnerpfade in konsistenter Schrägstrich-Schreibweise.</returns>
+    IReadOnlyList<string> LoadFolderPaths(string vaultPath);
 }
