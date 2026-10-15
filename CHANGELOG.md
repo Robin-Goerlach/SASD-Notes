@@ -9,6 +9,7 @@
 - Kontrolliertes Neuladen extern geänderter Notizen mit Dirty-State-Abfrage ergänzt.
 - Windows-CI um Release-Publish und eine V1-Release-Checkliste erweitert.
 - Der veröffentlichte WinForms-Stand wird zusätzlich als ZIP-CI-Artefakt bereitgestellt.
+- README um den Release-Candidate-Status und die V1-Checkliste ergänzt.
 
 - zerstörte Zeilenumbruch- und Zeichenliterale im Markdown-Formatter repariert
 - paketfreien Test-Harness um Formatter-, Unicode-, CRLF- und Backlink-Prüfungen erweitert
