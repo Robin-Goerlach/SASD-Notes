@@ -8,6 +8,7 @@
 - Windows-reservierte Datei- und Ordnernamen sowie problematische Endzeichen werden sicher normalisiert.
 - Kontrolliertes Neuladen extern geänderter Notizen mit Dirty-State-Abfrage ergänzt.
 - Windows-CI um Release-Publish und eine V1-Release-Checkliste erweitert.
+- Der veröffentlichte WinForms-Stand wird zusätzlich als ZIP-CI-Artefakt bereitgestellt.
 
 - zerstörte Zeilenumbruch- und Zeichenliterale im Markdown-Formatter repariert
 - paketfreien Test-Harness um Formatter-, Unicode-, CRLF- und Backlink-Prüfungen erweitert
