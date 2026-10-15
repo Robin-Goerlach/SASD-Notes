@@ -330,12 +330,15 @@ public partial class MainForm : Form
     /// </summary>
     private async void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
-        _externalChangeTimer.Stop();
         bool mayClose = await ConfirmSaveChangesIfRequiredAsync();
         if (!mayClose)
         {
             e.Cancel = true;
+            return;
         }
+
+        // Der Timer wird erst nach bestätigtem Schließen beendet; bei einem Abbruch bleibt die Überwachung aktiv.
+        _externalChangeTimer.Stop();
     }
 
     /// <summary>
