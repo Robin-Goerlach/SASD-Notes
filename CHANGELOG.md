@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Fensterschließen wartet auf asynchrone Speicherbestätigung; doppelte Schließversuche werden gesperrt. Windows-Regressionstest mit verzögertem Abschluss und Abbruch ergänzt.
+
 - Markdown-Zeilenformatierung erhält angrenzende CRLF-Zeilenumbrüche und respektiert exklusive Auswahlenden; LF-/CRLF-Regressionstests ergänzt.
 
 - Reservierte Windows-Namen mit Erweiterung korrekt bereinigt (`CON.md` → `CON_.md`); Namensregeln plattformunabhängig getestet.
