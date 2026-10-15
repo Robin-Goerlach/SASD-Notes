@@ -47,4 +47,29 @@ public static class FileNameHelper
         return IsReservedWindowsName(normalizedWhitespace)
             ? normalizedWhitespace + "_"
             : normalizedWhitespace;    }
+    /// <summary>
+    /// Prüft die unter Windows reservierten Geräte- und DOS-Namen.
+    /// </summary>
+    private static bool IsReservedWindowsName(string value)
+    {
+        string baseName = value.Split('.', 2)[0];
+
+        if (baseName.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
+            baseName.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
+            baseName.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
+            baseName.Equals("NUL", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (baseName.Length == 4 &&
+            (baseName.StartsWith("COM", StringComparison.OrdinalIgnoreCase) ||
+             baseName.StartsWith("LPT", StringComparison.OrdinalIgnoreCase)) &&
+            baseName[3] is >= '1' and <= '9')
+        {
+            return true;
+        }
+
+        return false;
+    }
 }
