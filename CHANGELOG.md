@@ -6,6 +6,7 @@
 - Beim Erzeugen einer neuen Notiz wird der Dirty-State vor dem Wechsel abgefragt.
 - Markdown-Toolbar um Durchstreichen, Zitat und nummerierte Listen ergänzt.
 - Windows-reservierte Datei- und Ordnernamen sowie problematische Endzeichen werden sicher normalisiert.
+- Kontrolliertes Neuladen extern geänderter Notizen mit Dirty-State-Abfrage ergänzt.
 
 - zerstörte Zeilenumbruch- und Zeichenliterale im Markdown-Formatter repariert
 - paketfreien Test-Harness um Formatter-, Unicode-, CRLF- und Backlink-Prüfungen erweitert
