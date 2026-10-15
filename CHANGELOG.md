@@ -14,6 +14,7 @@
 - Nicht auflösbare Wiki-Links werden im Info-Bereich angezeigt
 - Warnung bei extern geänderten oder gelöschten Notizen ergänzt
 - Such- und Backlink-Treffer zeigen jetzt auch ihre relativen Pfade an
+- Windows-GitHub-Action für Restore, Build und Tests ergänzt
 
 ## 2026-07-04
 
