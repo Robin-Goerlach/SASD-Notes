@@ -37,7 +37,7 @@ jobs:
       - name: Check for merge conflict markers
         shell: pwsh
         run: |
-          $markers = git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- .
+          $markers = git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- . ':!.github/workflows/dotnet-windows.yml'
           if ($LASTEXITCODE -eq 0) {
             Write-Error "Merge conflict markers were found."
           }
