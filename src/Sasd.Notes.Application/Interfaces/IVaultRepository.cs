@@ -31,6 +31,13 @@ public interface IVaultRepository
     Task SaveNoteAsync(string vaultPath, NoteDocument note, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Prüft, ob sich eine geladene Notiz seit ihrem Einlesen im Dateisystem verändert hat.
+    /// </summary>
+    /// <param name="note">Zu prüfende geladene Notiz.</param>
+    /// <returns><see langword="true"/>, wenn die Datei geändert oder gelöscht wurde.</returns>
+    bool HasChangedSinceLoaded(NoteDocument note);
+
+    /// <summary>
     /// Erstellt eine neue Markdown-Notiz in einem Zielordner.
     /// </summary>
     /// <param name="vaultPath">Pfad zum Vault-Wurzelverzeichnis.</param>
