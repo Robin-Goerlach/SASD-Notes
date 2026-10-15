@@ -34,9 +34,17 @@ public static class FileNameHelper
 
         string cleaned = new string(buffer, 0, index);
 
-        // Mehrfache Leerzeichen werden zusammengedrückt.
-        string normalizedWhitespace = string.Join(' ', cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        // Windows behandelt abschließende Punkte und Leerzeichen nicht zuverlässig als Dateinamenbestandteil.
+        string normalizedWhitespace = string.Join(' ', cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .TrimEnd(' ', '.');
 
-        return string.IsNullOrWhiteSpace(normalizedWhitespace) ? "Neue Notiz" : normalizedWhitespace;
-    }
+        if (string.IsNullOrWhiteSpace(normalizedWhitespace))
+        {
+            return "Neue Notiz";
+        }
+
+        // Reservierte Windows-Gerätenamen werden durch einen sicheren, weiterhin lesbaren Namen ersetzt.
+        return IsReservedWindowsName(normalizedWhitespace)
+            ? normalizedWhitespace + "_"
+            : normalizedWhitespace;    }
 }
