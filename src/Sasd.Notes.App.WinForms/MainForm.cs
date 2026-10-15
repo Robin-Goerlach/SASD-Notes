@@ -459,6 +459,47 @@ public partial class MainForm : Form
     }
 
     /// <summary>
+    /// Fügt einen vorhandenen Ordnerknoten inklusive Zwischenordnern in die TreeView ein.
+    /// </summary>
+    private void AddFolderNode(TreeNode rootNode, VaultTreeItem folder)
+    {
+        string normalizedPath = folder.RelativePath.Replace(Path.DirectorySeparatorChar, '/');
+        string[] parts = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        TreeNode currentNode = rootNode;
+        string currentRelativePath = string.Empty;
+
+        foreach (string part in parts)
+        {
+            currentRelativePath = string.IsNullOrEmpty(currentRelativePath)
+                ? part
+                : currentRelativePath + "/" + part;
+
+            TreeNode? existingNode = currentNode.Nodes
+                .Cast<TreeNode>()
+                .FirstOrDefault(node => string.Equals(node.Text, part, StringComparison.OrdinalIgnoreCase) &&
+                                        node.Tag is VaultTreeItem item &&
+                                        item.ItemType == TreeItemType.Folder);
+
+            if (existingNode is null)
+            {
+                existingNode = new TreeNode(part)
+                {
+                    Tag = new VaultTreeItem
+                    {
+                        DisplayText = part,
+                        FullPath = Path.Combine(_workspaceService.CurrentVault!.RootPath, currentRelativePath.Replace('/', Path.DirectorySeparatorChar)),
+                        RelativePath = currentRelativePath,
+                        ItemType = TreeItemType.Folder
+                    }
+                };
+
+                currentNode.Nodes.Add(existingNode);
+            }
+
+            currentNode = existingNode;
+        }
+    }
+    /// <summary>
     /// Fügt eine Notiz inklusive benötigter Zwischenordner in die TreeView ein.
     /// </summary>
     private void AddNoteNode(TreeNode rootNode, NoteDocument note)
