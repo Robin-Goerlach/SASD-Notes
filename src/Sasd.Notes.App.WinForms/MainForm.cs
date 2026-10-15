@@ -15,6 +15,7 @@ public partial class MainForm : Form
     private bool _suppressEditorEvents;
     private readonly System.Windows.Forms.Timer _externalChangeTimer;
     private readonly ToolStripMenuItem _newFolderMenuItem;
+    private readonly ToolStripMenuItem _reloadNoteMenuItem;
     private string? _externalChangeWarningPath;
 
     /// <summary>
@@ -32,6 +33,14 @@ public partial class MainForm : Form
         _newFolderMenuItem.Click += newFolderToolStripMenuItem_Click;
         int newNoteIndex = fileToolStripMenuItem.DropDownItems.IndexOf(newNoteToolStripMenuItem);
         fileToolStripMenuItem.DropDownItems.Insert(newNoteIndex, _newFolderMenuItem);
+
+        _reloadNoteMenuItem = new ToolStripMenuItem("Aktuelle Notiz neu laden")
+        {
+            ShortcutKeys = Keys.F6
+        };
+        _reloadNoteMenuItem.Click += reloadNoteToolStripMenuItem_Click;
+        int refreshIndex = fileToolStripMenuItem.DropDownItems.IndexOf(refreshVaultToolStripMenuItem);
+        fileToolStripMenuItem.DropDownItems.Insert(refreshIndex + 1, _reloadNoteMenuItem);
 
         // Die Prüfung läuft periodisch über den Workspace, damit die UI selbst keinen Dateisystemzugriff benötigt.
         _externalChangeTimer = new System.Windows.Forms.Timer { Interval = 2000 };
