@@ -95,6 +95,12 @@ public partial class MainForm : Form
             return;
         }
 
+        // Das Öffnen der neuen Notiz ersetzt den Editorinhalt und darf daher keine ungesicherten Änderungen verwerfen.
+        if (!await ConfirmSaveChangesIfRequiredAsync())
+        {
+            return;
+        }
+
         VaultTreeItem? selectedTreeItem = treeViewVault.SelectedNode?.Tag as VaultTreeItem;
         string? relativeFolderPath = _workspaceService.GetRelativeFolderPathForTreeItem(selectedTreeItem);
 
