@@ -189,6 +189,11 @@ internal static class Program
     {
         var formatter = new EditorFormattingService();
 
+        TextSelectionTransformResult insideCrlf = formatter.Apply(
+            "Erste\r\nZweite", 6, 0, MarkdownFormatKind.Quote);
+        AssertEx.Equal("> Erste\r\nZweite", insideCrlf.UpdatedText,
+            "Ein Cursor zwischen CR und LF darf den Zeilenumbruch nicht aufteilen.");
+
         foreach (string newline in new[] { "\n", "\r\n" })
         {
             string text = "Erste" + newline + "Zweite" + newline + "Dritte";
