@@ -35,7 +35,7 @@ public sealed class SearchHit
     /// </summary>
     public override string ToString()
     {
-        return $"{NoteTitle} — {PreviewText}";
+        return $"{NoteTitle} — {RelativePath} — {PreviewText}";
     }
 
 }
