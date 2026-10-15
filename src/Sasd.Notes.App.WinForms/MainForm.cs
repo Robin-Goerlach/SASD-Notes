@@ -560,6 +560,8 @@ public partial class MainForm : Form
 
         if (_currentNote is not null)
         {
+            IReadOnlyList<WikiLink> unresolvedLinks = _workspaceService.GetUnresolvedLinks(_currentNote);
+
             foreach (BacklinkInfo backlink in _workspaceService.GetBacklinks(_currentNote))
             {
                 listBoxBacklinks.Items.Add(backlink);
@@ -574,6 +576,7 @@ public partial class MainForm : Form
                                $"Relativer Pfad: {_currentNote.RelativePath}{Environment.NewLine}" +
                                $"Letzte Änderung (UTC): {_currentNote.LastModifiedUtc:u}{Environment.NewLine}" +
                                $"Wiki-Links: {_currentNote.Links.Count}{Environment.NewLine}" +
+                               $"Nicht auflösbare Links: {unresolvedLinks.Count}{Environment.NewLine}" +
                                $"Status: {(_currentNote.IsDirty ? "ungespeichert" : "gespeichert")}";
         }
         else
@@ -755,34 +758,3 @@ public partial class MainForm : Form
         NoteDocument? targetNote = _workspaceService.TryResolveLink(
             _currentNote,
             richTextBoxEditor.SelectionStart,
-            richTextBoxEditor.SelectedText);
-
-        if (targetNote is null)
-        {
-            MessageBox.Show(this, "An der aktuellen Auswahl konnte kein gültiger Wiki-Link aufgelöst werden.", "SASD Notes", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        if (!await ConfirmSaveChangesIfRequiredAsync())
-        {
-            return;
-        }
-
-        OpenNoteInEditor(targetNote);
-    }
-
-    /// <summary>
-    /// Öffnet eine kurze Info-Box zur Anwendung.
-    /// </summary>
-    private void aboutToolStripMenuItem_Click(object? sender, EventArgs e)
-    {
-        MessageBox.Show(
-            this,
-            "SASD Notes\n\n" +
-            "Lokale Markdown-Notizen mit Wiki-Links, Suche, Backlinks und thematischen Ordnern.\n\n" +
-            "V1 WinForms / .NET 8",
-            "Über SASD Notes",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
-    }
-}
