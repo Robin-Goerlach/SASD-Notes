@@ -279,6 +279,10 @@ internal static class Program
 
             AssertEx.False(repository.HasChangedSinceLoaded(note), "Eine unveränderte gespeicherte Notiz sollte keinen Änderungsalarm auslösen.");
 
+            NoteDocument createdNote = await repository.CreateNoteAsync(temporaryVault, null, "Neue Notiz");
+            AssertEx.Equal("Neue Notiz", createdNote.Title, "Eine neue Notiz sollte den bereinigten Titel erhalten.");
+            AssertEx.Equal(createdNote.Content, await File.ReadAllTextAsync(createdNote.FullPath), "Eine neue Notiz sollte vollständig geschrieben werden.");
+
             await File.WriteAllTextAsync(notePath, "# Extern geändert");
             File.SetLastWriteTimeUtc(notePath, note.LastModifiedUtc.AddSeconds(1));
             note.Content = "# Lokale Änderung";
