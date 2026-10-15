@@ -18,7 +18,8 @@ public static class FileNameHelper
             return "Neue Notiz";
         }
 
-        var invalidCharacters = Path.GetInvalidFileNameChars();
+        // Die Windows-Regeln gelten unabhängig vom Betriebssystem des Testlaufs.
+        const string invalidCharacters = "<>:\"/\\|?*";
         var buffer = new char[title.Length];
         int index = 0;
 
@@ -43,10 +44,18 @@ public static class FileNameHelper
             return "Neue Notiz";
         }
 
-        // Reservierte Windows-Gerätenamen werden durch einen sicheren, weiterhin lesbaren Namen ersetzt.
-        return IsReservedWindowsName(normalizedWhitespace)
-            ? normalizedWhitespace + "_"
-            : normalizedWhitespace;    }
+        // Der Zusatz muss vor der ersten Erweiterung stehen: CON.md_ wäre weiterhin reserviert.
+        if (IsReservedWindowsName(normalizedWhitespace))
+        {
+            int extensionIndex = normalizedWhitespace.IndexOf('.');
+            return extensionIndex >= 0
+                ? normalizedWhitespace.Insert(extensionIndex, "_")
+                : normalizedWhitespace + "_";
+        }
+
+        return normalizedWhitespace;
+    }
+
     /// <summary>
     /// Prüft die unter Windows reservierten Geräte- und DOS-Namen.
     /// </summary>
