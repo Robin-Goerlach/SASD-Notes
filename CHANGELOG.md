@@ -11,6 +11,8 @@
 - Speichern von Markdown-Notizen gegen externe Änderungen abgesichert
 - Notizen und lokale Einstellungen werden zunächst atomar über temporäre Dateien geschrieben
 - Repository-Tests für erfolgreiches Speichern und erkannte externe Änderungen ergänzt
+- Nicht auflösbare Wiki-Links werden im Info-Bereich angezeigt
+- Warnung bei extern geänderten oder gelöschten Notizen ergänzt
 
 ## 2026-07-04
 
