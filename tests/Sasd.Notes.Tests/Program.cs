@@ -101,6 +101,27 @@ internal static class Program
         AssertEx.Equal(8, bold.SelectionStart, "Die Auswahl sollte hinter dem Bold-Präfix beginnen.");
         AssertEx.Equal(4, bold.SelectionLength, "Die Auswahl sollte den ursprünglichen Text markieren.");
 
+        TextSelectionTransformResult strike = formattingService.Apply(
+            "Text",
+            0,
+            4,
+            MarkdownFormatKind.Strikethrough);
+        AssertEx.Equal("~~Text~~", strike.UpdatedText, "Durchstreichen sollte den Text mit Markdown-Tilden umschließen.");
+
+        TextSelectionTransformResult quote = formattingService.Apply(
+            "Zitat",
+            0,
+            5,
+            MarkdownFormatKind.Quote);
+        AssertEx.Equal("> Zitat", quote.UpdatedText, "Zitat-Formatierung sollte einen Markdown-Zeilenpräfix setzen.");
+
+        TextSelectionTransformResult numbered = formattingService.Apply(
+            "Erster\nZweiter",
+            0,
+            14,
+            MarkdownFormatKind.NumberedList);
+        AssertEx.Equal("1. Erster\n2. Zweiter", numbered.UpdatedText, "Nummerierte Listen sollten fortlaufend nummeriert werden.");
+
         TextSelectionTransformResult emptySelection = formattingService.Apply(
             string.Empty,
             50,
