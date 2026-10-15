@@ -113,6 +113,55 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     }
 
     /// <inheritdoc />
+    public Task<string> CreateFolderAsync(
+        string vaultPath,
+        string? relativeParentPath,
+        string folderName,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(folderName))
+        {
+            throw new ArgumentException("Der Ordnername darf nicht leer sein.", nameof(folderName));
+        }
+
+        string safeFolderName = FileNameHelper.ToSafeFileName(folderName);
+        if (safeFolderName is "." or "..")
+        {
+            throw new ArgumentException("Der Ordnername ist nicht zulässig.", nameof(folderName));
+        }
+
+        string normalizedVaultPath = Path.GetFullPath(vaultPath);
+        string parentPath = string.IsNullOrWhiteSpace(relativeParentPath)
+            ? normalizedVaultPath
+            : Path.GetFullPath(Path.Combine(
+                normalizedVaultPath,
+                relativeParentPath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar)));
+
+        // Sowohl der übergeordnete Ordner als auch der neue Zielordner müssen im Vault liegen.
+        EnsurePathInsideVault(normalizedVaultPath, parentPath);
+        if (!Directory.Exists(parentPath))
+        {
+            throw new DirectoryNotFoundException("Der übergeordnete Ordner wurde nicht gefunden.");
+        }
+
+        string targetPath = Path.Combine(parentPath, safeFolderName);
+        EnsurePathInsideVault(normalizedVaultPath, targetPath);
+
+        if (Directory.Exists(targetPath) || File.Exists(targetPath))
+        {
+            throw new IOException($"Der Ordner existiert bereits: {safeFolderName}");
+        }
+
+        // Der Ordner wird erst nach allen Sicherheitsprüfungen angelegt.
+        Directory.CreateDirectory(targetPath);
+
+        string relativePath = Path.GetRelativePath(normalizedVaultPath, targetPath).Replace('\\', '/');
+        return Task.FromResult(relativePath);
+    }
+
+    /// <inheritdoc />
     public async Task<NoteDocument> CreateNoteAsync(string vaultPath, string? relativeFolderPath, string title, CancellationToken cancellationToken = default)
     {
         string normalizedVaultPath = Path.GetFullPath(vaultPath);
