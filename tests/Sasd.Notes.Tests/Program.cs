@@ -47,6 +47,25 @@ internal static class Program
         AssertEx.Equal("Notiz", FileNameHelper.ToSafeFileName("Notiz..."), "Abschließende Punkte sollten entfernt werden.");
         AssertEx.Equal("CON_", FileNameHelper.ToSafeFileName("CON"), "Reservierte Windows-Gerätenamen müssen entschärft werden.");
         AssertEx.Equal("Neue Notiz", FileNameHelper.ToSafeFileName("///"), "Ein vollständig ungültiger Titel benötigt einen sicheren Fallback.");
+        AssertEx.Equal("CON_.md", FileNameHelper.ToSafeFileName("CON.md"), "Der sichere Zusatz muss vor der Dateiendung stehen.");
+        AssertEx.Equal("Projekt Plan", FileNameHelper.ToSafeFileName("Projekt:Plan"), "Windows-ungültige Zeichen müssen auf jedem Testsystem ersetzt werden.");
+
+        // Auch Gerätenamen mit Erweiterungen dürfen niemals unverändert zum Dateisystem gelangen.
+        var reservedNames = new List<string> { "CON", "PRN", "AUX", "NUL" };
+        for (int number = 1; number <= 9; number++)
+        {
+            reservedNames.Add($"COM{number}");
+            reservedNames.Add($"LPT{number}");
+        }
+
+        foreach (string reservedName in reservedNames)
+        {
+            string lowerCaseName = reservedName.ToLowerInvariant();
+            AssertEx.Equal(lowerCaseName + "_.md", FileNameHelper.ToSafeFileName(lowerCaseName + ".md"),
+                "Reservierte Namen müssen unabhängig von der Großschreibung vor der Erweiterung entschärft werden.");
+        }
+
+        AssertEx.Equal("COM10.md", FileNameHelper.ToSafeFileName("COM10.md"), "Nicht reservierte ähnliche Namen sollen erhalten bleiben.");
     }
 
     private static void RunWikiLinkParserTests()
@@ -430,6 +449,13 @@ internal static class Program
             NoteDocument createdNote = await repository.CreateNoteAsync(temporaryVault, null, "Neue Notiz");
             AssertEx.Equal("Neue Notiz", createdNote.Title, "Eine neue Notiz sollte den bereinigten Titel erhalten.");
             AssertEx.Equal(createdNote.Content, await File.ReadAllTextAsync(createdNote.FullPath), "Eine neue Notiz sollte vollständig geschrieben werden.");
+
+            // Prüft den tatsächlich erzeugten Windows-Dateinamen einschließlich Erweiterung.
+            NoteDocument deviceNamedNote = await repository.CreateNoteAsync(temporaryVault, null, "CON.md");
+            AssertEx.Equal("CON_.md", Path.GetFileName(deviceNamedNote.FullPath),
+                "Eine Notiz mit Gerätenamen und Erweiterung muss einen nutzbaren Dateinamen erhalten.");
+            AssertEx.Equal(deviceNamedNote.Content, await File.ReadAllTextAsync(deviceNamedNote.FullPath),
+                "Die bereinigte Notiz muss vollständig lesbar sein.");
 
             await File.WriteAllTextAsync(notePath, "# Extern geändert");
             File.SetLastWriteTimeUtc(notePath, note.LastModifiedUtc.AddSeconds(1));
