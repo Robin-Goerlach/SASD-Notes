@@ -13,6 +13,8 @@ public partial class MainForm : Form
     private readonly EditorFormattingService _editorFormattingService;
     private NoteDocument? _currentNote;
     private bool _suppressEditorEvents;
+    private readonly System.Windows.Forms.Timer _externalChangeTimer;
+    private string? _externalChangeWarningPath;
 
     /// <summary>
     /// Initialisiert eine neue Instanz der <see cref="MainForm"/>-Klasse.
@@ -22,6 +24,11 @@ public partial class MainForm : Form
         _workspaceService = workspaceService;
         _editorFormattingService = editorFormattingService;
         InitializeComponent();
+
+        // Die Prüfung läuft periodisch über den Workspace, damit die UI selbst keinen Dateisystemzugriff benötigt.
+        _externalChangeTimer = new System.Windows.Forms.Timer { Interval = 2000 };
+        _externalChangeTimer.Tick += externalChangeTimer_Tick;
+        _externalChangeTimer.Start();
     }
 
     /// <summary>
@@ -323,6 +330,7 @@ public partial class MainForm : Form
     /// </summary>
     private async void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
+        _externalChangeTimer.Stop();
         bool mayClose = await ConfirmSaveChangesIfRequiredAsync();
         if (!mayClose)
         {
@@ -451,6 +459,7 @@ public partial class MainForm : Form
     private void OpenNoteInEditor(NoteDocument note)
     {
         _currentNote = note;
+        _externalChangeWarningPath = null;
         _suppressEditorEvents = true;
         richTextBoxEditor.Text = note.Content;
         _suppressEditorEvents = false;
@@ -678,6 +687,32 @@ public partial class MainForm : Form
     }
 
     /// <summary>
+    /// Prüft regelmäßig, ob die aktuell geladenen Notizen extern geändert wurden.
+    /// </summary>
+    private void externalChangeTimer_Tick(object? sender, EventArgs e)
+    {
+        IReadOnlyList<NoteDocument> changedNotes = _workspaceService.GetExternallyChangedNotes();
+        NoteDocument? currentChangedNote = _currentNote is null
+            ? null
+            : changedNotes.FirstOrDefault(note =>
+                string.Equals(note.FullPath, _currentNote.FullPath, StringComparison.OrdinalIgnoreCase));
+
+        if (currentChangedNote is null)
+        {
+            return;
+        }
+
+        // Die Meldung wird pro Datei nur einmal angezeigt, damit der Timer keine Statusflut erzeugt.
+        if (string.Equals(_externalChangeWarningPath, currentChangedNote.FullPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _externalChangeWarningPath = currentChangedNote.FullPath;
+        SetStatus($"Warnung: Datei extern geändert oder gelöscht: {currentChangedNote.RelativePath}");
+    }
+
+    /// <summary>
     /// Zeigt einen Fehler verständlich an.
     /// </summary>
     private void ShowError(string userMessage, Exception exception)
@@ -758,3 +793,34 @@ public partial class MainForm : Form
         NoteDocument? targetNote = _workspaceService.TryResolveLink(
             _currentNote,
             richTextBoxEditor.SelectionStart,
+            richTextBoxEditor.SelectedText);
+
+        if (targetNote is null)
+        {
+            MessageBox.Show(this, "An der aktuellen Auswahl konnte kein gültiger Wiki-Link aufgelöst werden.", "SASD Notes", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        if (!await ConfirmSaveChangesIfRequiredAsync())
+        {
+            return;
+        }
+
+        OpenNoteInEditor(targetNote);
+    }
+
+    /// <summary>
+    /// Öffnet eine kurze Info-Box zur Anwendung.
+    /// </summary>
+    private void aboutToolStripMenuItem_Click(object? sender, EventArgs e)
+    {
+        MessageBox.Show(
+            this,
+            "SASD Notes\n\n" +
+            "Lokale Markdown-Notizen mit Wiki-Links, Suche, Backlinks und thematischen Ordnern.\n\n" +
+            "V1 WinForms / .NET 8",
+            "Über SASD Notes",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
+    }
+}
