@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Sichere Erstellung und Anzeige leerer Vault-Unterordner im WinForms-Baum ergänzt.
+
 - zerstörte Zeilenumbruch- und Zeichenliterale im Markdown-Formatter repariert
 - paketfreien Test-Harness um Formatter-, Unicode-, CRLF- und Backlink-Prüfungen erweitert
 - fehlende XML-Dokumentation für `MarkdownFormatKind` ergänzt
