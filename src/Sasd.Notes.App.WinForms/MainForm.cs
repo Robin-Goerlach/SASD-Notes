@@ -205,6 +205,45 @@ public partial class MainForm : Form
     }
 
     /// <summary>
+    /// Lädt die aktuelle Notiz nach einer bestätigten Verwerfung lokaler Änderungen neu.
+    /// </summary>
+    private async void reloadNoteToolStripMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_currentNote is null)
+        {
+            SetStatus("Keine Notiz zum Neuladen geöffnet.");
+            return;
+        }
+
+        if (_currentNote.IsDirty)
+        {
+            DialogResult result = MessageBox.Show(
+                this,
+                "Die aktuelle Notiz enthält ungespeicherte Änderungen. " +
+                "Sollen diese Änderungen verworfen und die Datei neu geladen werden?",
+                "SASD Notes",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result != DialogResult.Yes)
+            {
+                return;
+            }
+        }
+
+        try
+        {
+            NoteDocument reloadedNote = await _workspaceService.ReloadNoteAsync(_currentNote);
+            OpenNoteInEditor(reloadedNote);
+            SetStatus($"Notiz neu geladen: {reloadedNote.RelativePath}");
+        }
+        catch (Exception ex)
+        {
+            ShowError("Die aktuelle Notiz konnte nicht neu geladen werden.", ex);
+        }
+    }
+
+    /// <summary>
     /// Speichert die aktuell geöffnete Notiz.
     /// </summary>
     private async void saveToolStripMenuItem_Click(object? sender, EventArgs e)
