@@ -67,7 +67,32 @@ public sealed class JsonSettingsRepository : ISettingsRepository
     /// <inheritdoc />
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
-        await using FileStream stream = File.Create(_settingsFilePath);
-        await JsonSerializer.SerializeAsync(stream, settings, SerializerOptions, cancellationToken);
+        string temporaryPath = _settingsFilePath + ".tmp-" + Guid.NewGuid().ToString("N");
+
+        try
+        {
+            // Die Einstellungen werden zuerst vollständig in eine temporäre Datei geschrieben.
+            await using (FileStream stream = new(
+                temporaryPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 4096,
+                options: FileOptions.SequentialScan | FileOptions.WriteThrough))
+            {
+                await JsonSerializer.SerializeAsync(stream, settings, SerializerOptions, cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+            }
+
+            // Erst danach wird die bisherige Einstellungsdatei ersetzt.
+            File.Move(temporaryPath, _settingsFilePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
     }
 }
