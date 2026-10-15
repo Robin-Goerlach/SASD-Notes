@@ -1,4 +1,5 @@
 using Sasd.Notes.Application.Services;
+using Sasd.Notes.Application.Interfaces;
 using Sasd.Notes.Domain.Services;
 using Sasd.Notes.Domain.Models;
 using Sasd.Notes.Infrastructure.Repositories;
@@ -23,6 +24,7 @@ internal static class Program
             RunEditorFormattingTests();
             RunLinkResolverTests();
             RunBacklinkServiceTests();
+            await RunUnresolvedLinkTests();
             await RunFileSystemRepositoryTests();
 
             Console.WriteLine("Alle SASD Notes Kernprüfungen wurden erfolgreich ausgeführt.");
@@ -174,6 +176,64 @@ internal static class Program
         IReadOnlyList<BacklinkInfo> backlinks = backlinkService.GetBacklinks(target, new[] { target, source });
         AssertEx.Equal(1, backlinks.Count, "BacklinkService sollte den Rückverweis finden.");
         AssertEx.Equal("Quelle.md", backlinks[0].SourceRelativePath, "Der Quellpfad des Backlinks sollte erhalten bleiben.");
+    }
+
+    private static async Task RunUnresolvedLinkTests()
+    {
+        string temporaryVault = Path.Combine(Path.GetTempPath(), "sasd-notes-link-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temporaryVault);
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(temporaryVault, "Quelle.md"),
+                "[[Vorhanden]] und [[Fehlt]].");
+            await File.WriteAllTextAsync(Path.Combine(temporaryVault, "Vorhanden.md"), "# Vorhanden");
+
+            var parser = new WikiLinkParser();
+            var resolver = new LinkResolver();
+            var repository = new FileSystemVaultRepository(parser);
+            var workspace = new NotesWorkspaceService(
+                repository,
+                new InMemorySettingsRepository(),
+                parser,
+                new MarkdownOutlineParser(),
+                resolver,
+                new SearchService(),
+                new BacklinkService(resolver));
+
+            await workspace.InitializeAsync();
+            await workspace.OpenVaultAsync(temporaryVault);
+
+            NoteDocument sourceNote = workspace.LoadedNotes.Single(note => note.Title == "Quelle");
+            IReadOnlyList<WikiLink> unresolved = workspace.GetUnresolvedLinks(sourceNote);
+
+            AssertEx.Equal(1, unresolved.Count, "Nicht vorhandene Wiki-Links sollten erkannt werden.");
+            AssertEx.Equal("Fehlt", unresolved[0].Target, "Das nicht auflösbare Ziel sollte erhalten bleiben.");
+        }
+        finally
+        {
+            // Der Test-Vault wird nach dem Test vollständig entfernt.
+            if (Directory.Exists(temporaryVault))
+            {
+                Directory.Delete(temporaryVault, recursive: true);
+            }
+        }
+    }
+
+    private sealed class InMemorySettingsRepository : ISettingsRepository
+    {
+        private readonly AppSettings _settings = new();
+
+        public Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(_settings);
+        }
+
+        public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private static async Task RunFileSystemRepositoryTests()
