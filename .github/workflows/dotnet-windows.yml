@@ -32,7 +32,25 @@ jobs:
         run: dotnet test Sasd.Notes.sln --configuration Release --no-build
 
       - name: Publish WinForms release
-        run: dotnet publish .\\src\\Sasd.Notes.App.WinForms\\Sasd.Notes.App.WinForms.csproj --configuration Release --no-restore --self-contained false
+        shell: pwsh
+        run: |
+          # Der veröffentlichte Inhalt wird in einem reproduzierbaren Artefaktverzeichnis gesammelt.
+          $publishDirectory = Join-Path $env:GITHUB_WORKSPACE "artifacts\\Sasd.Notes.WinForms"
+          dotnet publish .\\src\\Sasd.Notes.App.WinForms\\Sasd.Notes.App.WinForms.csproj --configuration Release --no-restore --self-contained false -p:PublishDir="$publishDirectory\\"
+
+      - name: Package WinForms release
+        shell: pwsh
+        run: |
+          # Ein ZIP erleichtert die manuelle Prüfung des exakt veröffentlichten CI-Stands.
+          $publishDirectory = Join-Path $env:GITHUB_WORKSPACE "artifacts\\Sasd.Notes.WinForms"
+          $archivePath = Join-Path $env:GITHUB_WORKSPACE "artifacts\\Sasd.Notes.WinForms.zip"
+          Compress-Archive -Path "$publishDirectory\\*" -DestinationPath $archivePath -Force
+
+      - name: Upload WinForms release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sasd-notes-winforms-release
+          path: artifacts/Sasd.Notes.WinForms.zip
 
       - name: Run package-free verification harness
         run: dotnet run --project .\\tests\\Sasd.Notes.Tests\\Sasd.Notes.Tests.csproj --configuration Release --no-build
