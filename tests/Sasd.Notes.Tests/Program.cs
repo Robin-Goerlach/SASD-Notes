@@ -269,6 +269,38 @@ internal static class Program
             await File.WriteAllTextAsync(notePath, "# Ursprünglich\n\nInhalt");
 
             var repository = new FileSystemVaultRepository(new WikiLinkParser());
+
+            string createdFolder = await repository.CreateFolderAsync(temporaryVault, null, "Projekte");
+            AssertEx.Equal("Projekte", createdFolder, "Ein neuer Unterordner sollte relativ zum Vault zurückgegeben werden.");
+            AssertEx.True(Directory.Exists(Path.Combine(temporaryVault, "Projekte")), "Der neue Unterordner sollte im Vault angelegt werden.");
+
+            string nestedFolder = await repository.CreateFolderAsync(temporaryVault, "Projekte", "Archiv");
+            AssertEx.Equal("Projekte/Archiv", nestedFolder, "Ein verschachtelter Unterordner sollte korrekt normalisiert werden.");
+
+            bool duplicateFolderRejected = false;
+            try
+            {
+                await repository.CreateFolderAsync(temporaryVault, null, "Projekte");
+            }
+            catch (IOException)
+            {
+                duplicateFolderRejected = true;
+            }
+
+            AssertEx.True(duplicateFolderRejected, "Ein bereits vorhandener Ordner darf nicht stillschweigend wiederverwendet werden.");
+
+            bool traversalRejected = false;
+            try
+            {
+                await repository.CreateFolderAsync(temporaryVault, "..", "Außerhalb");
+            }
+            catch (InvalidOperationException)
+            {
+                traversalRejected = true;
+            }
+
+            AssertEx.True(traversalRejected, "Ein übergeordneter Pfad außerhalb des Vaults muss abgelehnt werden.");
+
             IReadOnlyList<NoteDocument> notes = await repository.LoadAllNotesAsync(temporaryVault);
             AssertEx.Equal(1, notes.Count, "Das Repository sollte die Markdown-Datei laden.");
 
