@@ -25,6 +25,7 @@ public partial class MainForm : Form
         _workspaceService = workspaceService;
         _editorFormattingService = editorFormattingService;
         InitializeComponent();
+        AddAdditionalFormattingButtons();
 
         // Der Menüpunkt wird programmgesteuert ergänzt, weil der Dialog keine Designer-Abhängigkeit benötigt.
         _newFolderMenuItem = new ToolStripMenuItem("Neuer Ordner...");
@@ -36,6 +37,40 @@ public partial class MainForm : Form
         _externalChangeTimer = new System.Windows.Forms.Timer { Interval = 2000 };
         _externalChangeTimer.Tick += externalChangeTimer_Tick;
         _externalChangeTimer.Start();
+    }
+
+    /// <summary>
+    /// Ergänzt die Formatierungsbefehle, die im Designer nicht benötigt werden.
+    /// </summary>
+    private void AddAdditionalFormattingButtons()
+    {
+        var strikethroughButton = CreateFormattingButton("Durch", MarkdownFormatKind.Strikethrough);
+        var quoteButton = CreateFormattingButton("Zitat", MarkdownFormatKind.Quote);
+        var numberedListButton = CreateFormattingButton("1. Liste", MarkdownFormatKind.NumberedList);
+
+        // Die zusätzlichen Befehle werden neben den bestehenden Listen- und Inline-Befehlen eingeordnet.
+        int insertIndex = toolStripMain.Items.IndexOf(toolStripButtonCode) + 1;
+        toolStripMain.Items.Insert(insertIndex, strikethroughButton);
+        toolStripMain.Items.Insert(insertIndex + 1, quoteButton);
+        toolStripMain.Items.Insert(insertIndex + 2, numberedListButton);
+    }
+
+    /// <summary>
+    /// Erzeugt einen einheitlich konfigurierten Markdown-Toolbarbutton.
+    /// </summary>
+    /// <param name="caption">Kurze Beschriftung des Buttons.</param>
+    /// <param name="formatKind">Anzuwendende Markdown-Formatierung.</param>
+    /// <returns>Konfigurierter Toolbarbutton.</returns>
+    private ToolStripButton CreateFormattingButton(string caption, MarkdownFormatKind formatKind)
+    {
+        var button = new ToolStripButton(caption)
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.Text,
+            Tag = formatKind
+        };
+
+        button.Click += toolStripFormatButton_Click;
+        return button;
     }
 
     /// <summary>
