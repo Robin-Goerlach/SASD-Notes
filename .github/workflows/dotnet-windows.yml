@@ -32,12 +32,40 @@ jobs:
         run: dotnet test Sasd.Notes.sln --configuration Release --no-build
 
       - name: Run package-free verification harness
-        run: dotnet run --project .\tests\Sasd.Notes.Tests\Sasd.Notes.Tests.csproj --configuration Release --no-build
+        run: dotnet run --project .\\tests\\Sasd.Notes.Tests\\Sasd.Notes.Tests.csproj --configuration Release --no-build
 
       - name: Check for merge conflict markers
         shell: pwsh
         run: |
-          $markers = git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- . ':!.github/workflows/dotnet-windows.yml'
-          if ($LASTEXITCODE -eq 0) {
-            Write-Error "Merge conflict markers were found."
+          # Nur Projekt-, Dokumentations- und Testdateien prüfen.
+          # Die CI-Konfiguration selbst wird bewusst nicht durchsucht.
+          $scanPaths = @(
+            'src',
+            'tests',
+            'docs',
+            'spec',
+            'sample-vault',
+            'README.md',
+            'AGENTS.md',
+            'CONTRIBUTING.md',
+            'CHANGELOG.md',
+            'Sasd.Notes.sln'
+          )
+
+          $files = foreach ($path in $scanPaths) {
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+              Get-Item -LiteralPath $path
+            }
+            elseif (Test-Path -LiteralPath $path -PathType Container) {
+              Get-ChildItem -LiteralPath $path -Recurse -File
+            }
+          }
+
+          $markers = @($files | Select-String -Pattern '^(<<<<<<<|=======|>>>>>>>)')
+          if ($markers.Count -gt 0) {
+            $markers | ForEach-Object {
+              Write-Host ("{0}:{1}: {2}" -f $_.Path, $_.LineNumber, $_.Line)
+            }
+
+            throw "Merge conflict markers were found."
           }
