@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Markdown-Zeilenformatierung erhält angrenzende CRLF-Zeilenumbrüche und respektiert exklusive Auswahlenden; LF-/CRLF-Regressionstests ergänzt.
+
 - Reservierte Windows-Namen mit Erweiterung korrekt bereinigt (`CON.md` → `CON_.md`); Namensregeln plattformunabhängig getestet.
 
 - Sichere Erstellung und Anzeige leerer Vault-Unterordner im WinForms-Baum ergänzt.
