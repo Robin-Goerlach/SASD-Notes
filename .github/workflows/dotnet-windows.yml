@@ -12,6 +12,7 @@ on:
 jobs:
   build-and-test:
     runs-on: windows-latest
+    timeout-minutes: 15
 
     steps:
       - name: Check out repository
@@ -21,6 +22,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
+      - name: Clean solution
+        run: dotnet clean Sasd.Notes.sln --configuration Release
 
       - name: Restore solution
         run: dotnet restore Sasd.Notes.sln
@@ -54,6 +58,9 @@ jobs:
 
       - name: Run package-free verification harness
         run: dotnet run --project .\\tests\\Sasd.Notes.Tests\\Sasd.Notes.Tests.csproj --configuration Release --no-build
+
+      - name: Run Windows closing regression harness
+        run: dotnet run --project ./tests/Sasd.Notes.WinForms.Tests/Sasd.Notes.WinForms.Tests.csproj --configuration Release --no-build
 
       - name: Check for merge conflict markers
         shell: pwsh
