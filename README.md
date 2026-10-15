@@ -76,6 +76,7 @@ dotnet restore
 dotnet build Sasd.Notes.sln
 dotnet test Sasd.Notes.sln
 dotnet run --project .\tests\Sasd.Notes.Tests\Sasd.Notes.Tests.csproj
+dotnet publish .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj --configuration Release --self-contained false
 dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj
 ```
 
