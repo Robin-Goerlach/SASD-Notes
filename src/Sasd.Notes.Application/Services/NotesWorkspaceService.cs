@@ -223,6 +223,31 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
+    /// Erstellt einen neuen Unterordner im aktuellen Vault und liefert dessen relativen Pfad.
+    /// </summary>
+    /// <param name="folderName">Name des neuen Ordners.</param>
+    /// <param name="relativeParentPath">Relativer übergeordneter Ordner oder <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Abbruchtoken.</param>
+    /// <returns>Der relative Pfad des neu erstellten Ordners.</returns>
+    public async Task<string> CreateFolderAsync(
+        string folderName,
+        string? relativeParentPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (CurrentVault is null)
+        {
+            throw new InvalidOperationException("Es ist kein Vault geöffnet.");
+        }
+
+        // Die Pfad- und Namensprüfung bleibt im Infrastrukturadapter, damit alle Aufrufer dieselben Regeln verwenden.
+        return await _vaultRepository.CreateFolderAsync(
+            CurrentVault.RootPath,
+            relativeParentPath,
+            folderName,
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Ermittelt Suchtreffer innerhalb des geladenen Vaults.
     /// </summary>
     public IReadOnlyList<SearchHit> Search(string query)
