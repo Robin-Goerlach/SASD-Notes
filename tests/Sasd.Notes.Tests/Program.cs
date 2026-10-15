@@ -26,6 +26,7 @@ internal static class Program
             RunLinkResolverTests();
             RunBacklinkServiceTests();
             await RunUnresolvedLinkTests();
+            await RunFolderTreeTests();
             await RunFileSystemRepositoryTests();
 
             Console.WriteLine("Alle SASD Notes Kernprüfungen wurden erfolgreich ausgeführt.");
@@ -236,6 +237,48 @@ internal static class Program
         finally
         {
             // Der Test-Vault wird nach dem Test vollständig entfernt.
+            if (Directory.Exists(temporaryVault))
+            {
+                Directory.Delete(temporaryVault, recursive: true);
+            }
+        }
+    }
+
+    private static async Task RunFolderTreeTests()
+    {
+        string temporaryVault = Path.Combine(Path.GetTempPath(), "sasd-notes-folder-tree-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(temporaryVault, "Thema"));
+
+        try
+        {
+            var parser = new WikiLinkParser();
+            var resolver = new LinkResolver();
+            var workspace = new NotesWorkspaceService(
+                new FileSystemVaultRepository(parser),
+                new InMemorySettingsRepository(),
+                parser,
+                new MarkdownOutlineParser(),
+                resolver,
+                new SearchService(),
+                new BacklinkService(resolver));
+
+            await workspace.InitializeAsync();
+            await workspace.OpenVaultAsync(temporaryVault);
+
+            VaultTreeItem? emptyFolder = workspace.BuildTreeItems()
+                .FirstOrDefault(item => item.ItemType == TreeItemType.Folder && item.RelativePath == "Thema");
+            AssertEx.True(emptyFolder is not null, "Leere Vault-Ordner sollten im fachlichen Baum enthalten sein.");
+
+            string nestedFolder = await workspace.CreateFolderAsync("Unterordner", "Thema");
+            AssertEx.Equal("Thema/Unterordner", nestedFolder, "Der Workspace sollte verschachtelte Ordner korrekt anlegen.");
+
+            VaultTreeItem? nestedItem = workspace.BuildTreeItems()
+                .FirstOrDefault(item => item.ItemType == TreeItemType.Folder && item.RelativePath == nestedFolder);
+            AssertEx.True(nestedItem is not null, "Neu angelegte Ordner sollten ohne vollständiges Neuladen im Baum erscheinen.");
+        }
+        finally
+        {
+            // Der Test-Vault wird nach Abschluss vollständig entfernt.
             if (Directory.Exists(temporaryVault))
             {
                 Directory.Delete(temporaryVault, recursive: true);
