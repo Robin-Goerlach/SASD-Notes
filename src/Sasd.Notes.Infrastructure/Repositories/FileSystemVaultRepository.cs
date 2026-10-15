@@ -98,6 +98,21 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     }
 
     /// <inheritdoc />
+    public bool HasChangedSinceLoaded(NoteDocument note)
+    {
+        ArgumentNullException.ThrowIfNull(note);
+
+        // Eine gelöschte Datei gilt ebenfalls als externe Änderung.
+        if (!File.Exists(note.FullPath))
+        {
+            return true;
+        }
+
+        DateTime currentLastModifiedUtc = File.GetLastWriteTimeUtc(note.FullPath);
+        return note.LastModifiedUtc != default && currentLastModifiedUtc != note.LastModifiedUtc;
+    }
+
+    /// <inheritdoc />
     public async Task<NoteDocument> CreateNoteAsync(string vaultPath, string? relativeFolderPath, string title, CancellationToken cancellationToken = default)
     {
         string normalizedVaultPath = Path.GetFullPath(vaultPath);
