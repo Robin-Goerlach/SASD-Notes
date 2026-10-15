@@ -17,6 +17,8 @@ public partial class MainForm : Form
     private readonly ToolStripMenuItem _newFolderMenuItem;
     private readonly ToolStripMenuItem _reloadNoteMenuItem;
     private string? _externalChangeWarningPath;
+    private bool _closeConfirmationInProgress;
+    private bool _closeApproved;
 
     /// <summary>
     /// Initialisiert eine neue Instanz der <see cref="MainForm"/>-Klasse.
@@ -463,15 +465,61 @@ public partial class MainForm : Form
     /// </summary>
     private async void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
-        bool mayClose = await ConfirmSaveChangesIfRequiredAsync();
-        if (!mayClose)
+        if (_closeApproved || e.Cancel)
         {
-            e.Cancel = true;
             return;
         }
 
-        // Der Timer wird erst nach bestätigtem Schließen beendet; bei einem Abbruch bleibt die Überwachung aktiv.
-        _externalChangeTimer.Stop();
+        // WinForms wartet nicht auf async-void-Handler: Der erste Versuch muss vor dem await abgebrochen werden.
+        e.Cancel = true;
+        if (_closeConfirmationInProgress)
+        {
+            return;
+        }
+
+        _closeConfirmationInProgress = true;
+        bool wasEnabled = Enabled;
+        Enabled = false;
+
+        try
+        {
+            if (!await ConfirmSaveChangesIfRequiredAsync())
+            {
+                return;
+            }
+
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            // Ein zweiter Schließversuch läuft erst nach vollständig abgeschlossener Bestätigung bzw. Speicherung.
+            _closeApproved = true;
+            BeginInvoke(new Action(Close));
+        }
+        catch (Exception ex)
+        {
+            ShowError("Das Fenster konnte nicht sicher geschlossen werden.", ex);
+        }
+        finally
+        {
+            _closeConfirmationInProgress = false;
+            if (!IsDisposed && !Disposing)
+            {
+                Enabled = wasEnabled;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gibt die periodische Änderungsprüfung nach dem tatsächlichen Schließen frei.
+    /// </summary>
+    /// <param name="e">Informationen über den abgeschlossenen Schließvorgang.</param>
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        // Bei abgebrochenem Schließen bleibt der Timer aktiv; beim endgültigen Schließen wird er freigegeben.
+        _externalChangeTimer.Dispose();
+        base.OnFormClosed(e);
     }
 
     /// <summary>
@@ -925,7 +973,8 @@ public partial class MainForm : Form
     /// <summary>
     /// Fragt bei ungespeicherten Änderungen ab, ob gespeichert werden soll.
     /// </summary>
-    private async Task<bool> ConfirmSaveChangesIfRequiredAsync()
+    /// <returns>Ob der angeforderte Wechsel oder Schließvorgang fortgesetzt werden darf.</returns>
+    protected virtual async Task<bool> ConfirmSaveChangesIfRequiredAsync()
     {
         if (_currentNote?.IsDirty != true)
         {
