@@ -80,6 +80,13 @@ internal static class WorkspaceSwitchTests
         AssertOldState(workspace, oldPath, oldNote);
         vaultRepository.AfterFolderScan = null;
 
+        // Auch die Verwerfen-Basis muss einen fehlgeschlagenen Wechsel unverändert überstehen.
+        AssertEx.True(workspace.TryDiscardWorkingChanges(oldNote),
+            "Nach fehlgeschlagenen Wechseln muss Verwerfen weiterhin möglich sein.");
+        AssertEx.Equal("# Geladene Notiz", oldNote.Content,
+            "Ein fehlgeschlagener Wechsel darf die ursprüngliche Verwerfen-Basis nicht ersetzen.");
+        workspace.UpdateWorkingContent(oldNote, "Ungespeicherte lokale Änderung 😀");
+
         // Nach Fehlern muss ein normaler Wechsel weiterhin den vollständigen neuen Zustand übernehmen können.
         await workspace.OpenVaultAsync(newPath);
         AssertEx.Equal(newPath, workspace.CurrentVault!.RootPath, "Der erfolgreiche Wechsel muss den neuen Vault aktivieren.");

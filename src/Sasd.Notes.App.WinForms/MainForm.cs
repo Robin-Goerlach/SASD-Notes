@@ -1004,6 +1004,21 @@ public partial class MainForm : Form
             return await SaveCurrentNoteAsync();
         }
 
+        // „Nicht speichern“ verwirft auch den zwischengespeicherten Arbeitsstand, nicht nur den sichtbaren Editor.
+        if (!_workspaceService.TryDiscardWorkingChanges(_currentNote))
+        {
+            SetStatus("Änderungen konnten noch nicht verworfen werden. Bitte warten Sie auf laufende Speicherung.");
+            return false;
+        }
+
+        // Ein nachfolgender Dialog oder Vault-Wechsel kann weiterhin abgebrochen werden bzw. fehlschlagen.
+        // Deshalb wird bereits jetzt auch der verbleibende Editor auf den wiederhergestellten Stand gebracht.
+        _suppressEditorEvents = true;
+        richTextBoxEditor.Text = _currentNote.Content;
+        _suppressEditorEvents = false;
+        UpdateWindowTitle();
+        UpdateStatusMetrics();
+        RefreshContextPanels();
         return true;
     }
 

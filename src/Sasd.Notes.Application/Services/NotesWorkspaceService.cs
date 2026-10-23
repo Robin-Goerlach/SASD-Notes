@@ -19,6 +19,7 @@ public sealed class NotesWorkspaceService
     private readonly BacklinkService _backlinkService;
     private AppSettings _settings = new();
     private readonly HashSet<NoteDocument> _notesBeingSaved = new();
+    private readonly Dictionary<NoteDocument, string> _savedContents = new();
     private readonly List<NoteDocument> _loadedNotes = new();
     private readonly List<string> _loadedFolderPaths = new();
 
@@ -132,6 +133,7 @@ public sealed class NotesWorkspaceService
 
         // Erst jetzt wird der vollständige neue Zustand ohne weiteren await übernommen.
         // Nach erfolgreichem Speichern wird kein neuer Abbruchpunkt mehr eingefügt, damit Einstellungen und Workspace zusammenpassen.
+        _savedContents.Clear();
         _loadedNotes.Clear();
         _loadedNotes.AddRange(preparedNotes);
         _loadedFolderPaths.Clear();
@@ -255,6 +257,16 @@ public sealed class NotesWorkspaceService
             // Nur identischer aktueller Inhalt darf anschließend als gespeichert gelten.
             note.LastModifiedUtc = savedSnapshot.LastModifiedUtc;
             note.IsDirty = !string.Equals(note.Content, savedSnapshot.Content, StringComparison.Ordinal);
+
+            // Bei neuerem Editorinhalt muss Verwerfen zum gerade gespeicherten Stand zurückführen.
+            if (note.IsDirty)
+            {
+                _savedContents[note] = savedSnapshot.Content;
+            }
+            else
+            {
+                _savedContents.Remove(note);
+            }
         }
         finally
         {
@@ -403,6 +415,8 @@ public sealed class NotesWorkspaceService
             SortNotes();
         }
 
+        // Nach erfolgreichem Neuladen wird der alte Bearbeitungsstand nicht mehr benötigt.
+        _savedContents.Remove(note);
         return refreshedNote;
     }
 
@@ -443,13 +457,60 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
-    /// Lädt den Arbeitszustand für den aktuell bearbeiteten Editortext neu in das Modell ein.
+    /// Übernimmt den aktuellen Editortext und erhält den Ausgangstext für ein späteres Verwerfen.
     /// </summary>
+    /// <param name="note">Die bearbeitete Arbeitsnotiz.</param>
+    /// <param name="workingContent">Der aktuelle Text aus dem Editor.</param>
     public void UpdateWorkingContent(NoteDocument note, string workingContent)
     {
+        ArgumentNullException.ThrowIfNull(note);
+        ArgumentNullException.ThrowIfNull(workingContent);
+
+        // Nur die erste Änderung merkt sich den Ausgangstext; weitere Tastendrücke dürfen ihn nicht ersetzen.
+        _savedContents.TryAdd(note, note.Content);
         note.Content = workingContent;
         note.Links = _wikiLinkParser.Parse(workingContent);
         note.IsDirty = true;
+    }
+
+    /// <summary>
+    /// Verwirft lokale Änderungen zugunsten des zuletzt geladenen oder erfolgreich gespeicherten Textstands.
+    /// </summary>
+    /// <param name="note">Arbeitsnotiz, deren lokale Änderungen ausdrücklich verworfen werden sollen.</param>
+    /// <returns>
+    /// <see langword="true"/> bei erfolgreichem Zurücksetzen oder unveränderter Notiz;
+    /// <see langword="false"/> bei laufendem Speichern oder fehlendem bekannten Ausgangstext.
+    /// </returns>
+    /// <remarks>
+    /// Liest und schreibt keine Datei. Externe Änderungen werden erst durch explizites Neuladen übernommen.
+    /// </remarks>
+    public bool TryDiscardWorkingChanges(NoteDocument note)
+    {
+        ArgumentNullException.ThrowIfNull(note);
+
+        // Ein offener Schreibauftrag könnte sonst nach dem Verwerfen einen anderen Dateistand veröffentlichen.
+        if (_notesBeingSaved.Contains(note))
+        {
+            return false;
+        }
+
+        if (!note.IsDirty)
+        {
+            return true;
+        }
+
+        if (!_savedContents.TryGetValue(note, out string? savedContent))
+        {
+            // Ohne bekannten Ausgangstext darf kein vermeintlich gespeicherter Stand erfunden werden.
+            return false;
+        }
+
+        IReadOnlyList<WikiLink> restoredLinks = _wikiLinkParser.Parse(savedContent);
+        note.Content = savedContent;
+        note.Links = restoredLinks;
+        note.IsDirty = false;
+        _savedContents.Remove(note);
+        return true;
     }
 
     /// <summary>

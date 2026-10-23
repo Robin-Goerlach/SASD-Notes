@@ -26,10 +26,23 @@ internal static class WorkspaceSaveTests
         NoteDocument note = workspace.LoadedNotes.Single();
         DateTime originalTimestamp = note.LastModifiedUtc;
 
+        // Mehrere Bearbeitungsschritte müssen immer denselben geladenen Ausgangstext wiederherstellen.
+        workspace.UpdateWorkingContent(note, "[[Erste Änderung]] 😀\r\n");
+        workspace.UpdateWorkingContent(note, "[[Zweite Änderung]] Ω\n");
+        Require(workspace.TryDiscardWorkingChanges(note), "Bekannte lokale Änderungen müssen verwerfbar sein.");
+        Require(note.Content == "# Original" && !note.IsDirty && note.Links.Count == 0,
+            "Verwerfen muss Ausgangstext, Links und Dirty-State gemeinsam wiederherstellen.");
+        Require(ReferenceEquals(note, workspace.FindNoteByFullPath(note.FullPath)),
+            "Auch beim erneuten Öffnen muss das geladene Modell den verworfenen Stand verlieren.");
+        Require(repository.SaveCount == 0 && note.LastModifiedUtc == originalTimestamp,
+            "Verwerfen darf weder schreiben noch den Dateizeitstempel verändern.");
+        Require(workspace.TryDiscardWorkingChanges(note), "Erneutes Verwerfen einer sauberen Notiz muss harmlos sein.");
+
         // Der erste Auftrag bleibt offen, während ein neuer Editorstand entsteht.
         Task saving = workspace.SaveNoteAsync(note, "[[Gespeichert]] 😀\r\n");
         Require(!saving.IsCompleted, "Der Test muss einen tatsächlich offenen Schreibauftrag prüfen.");
         NoteDocument firstSnapshot = repository.PendingNote!;
+        Require(!workspace.TryDiscardWorkingChanges(note), "Während einer Speicherung darf nicht verworfen werden.");
         Require(!ReferenceEquals(note, firstSnapshot), "Das Repository darf nicht das veränderliche Arbeitsmodell erhalten.");
         workspace.UpdateWorkingContent(note, "[[Neu]] Ω\n");
         await ExpectFailureAsync<InvalidOperationException>(() => workspace.SaveNoteAsync(note, "Doppelauftrag"));
@@ -44,6 +57,12 @@ internal static class WorkspaceSaveTests
         Require(note.Content == "[[Neu]] Ω\n" && note.Links.Single().Target == "Neu",
             "Der Abschluss darf weder neuen Text noch neue Links überschreiben.");
         Require(note.LastModifiedUtc == repository.SavedTimestamp, "Der erfolgreiche Zeitstempel muss übernommen werden.");
+
+        // Ein neuerer Editorstand wird zum gerade gespeicherten Text verworfen, nicht zum ursprünglichen Ladestand.
+        Require(workspace.TryDiscardWorkingChanges(note), "Nach Schreibabschluss müssen neuere Änderungen verwerfbar sein.");
+        Require(note.Content == "[[Gespeichert]] 😀\r\n" && note.Links.Single().Target == "Gespeichert" && !note.IsDirty,
+            "Verwerfen muss nach asynchronem Speichern den zuletzt gespeicherten Stand liefern.");
+        workspace.UpdateWorkingContent(note, "[[Neu]] Ω\n");
 
         // Ein unveränderter zweiter Speicherstand darf erst nach erfolgreichem Abschluss sauber werden.
         Task retry = workspace.SaveNoteAsync(note, note.Content);
@@ -79,6 +98,42 @@ internal static class WorkspaceSaveTests
         await finalSave;
         Require(!note.IsDirty && note.Content == string.Empty, "Auch ein leeres Dokument muss nach Wiederholung speicherbar bleiben.");
         Require(note.LastModifiedUtc != originalTimestamp, "Der Test muss einen neuen gespeicherten Zeitstempel erhalten haben.");
+
+        // Ein erfolgreicher Leertext-Speichervorgang ersetzt auch die Verwerfen-Basis früherer Fehler.
+        workspace.UpdateWorkingContent(note, "Nach leerem Speichern");
+        Require(workspace.TryDiscardWorkingChanges(note) && note.Content == string.Empty && !note.IsDirty,
+            "Auch ein leerer gespeicherter Ausgangstext muss wiederherstellbar sein.");
+
+        workspace.UpdateWorkingContent(note, "Nicht speicherbar");
+        Task anotherFailure = workspace.SaveNoteAsync(note, note.Content);
+        repository.FailSave(new IOException("Erneuter Schreibfehler."));
+        await ExpectFailureAsync<IOException>(() => anotherFailure);
+        Require(workspace.TryDiscardWorkingChanges(note) && note.Content == string.Empty,
+            "Ein Schreibfehler darf die letzte erfolgreiche Verwerfen-Basis nicht ersetzen.");
+
+        workspace.UpdateWorkingContent(note, "Abgebrochene Änderung");
+        using var anotherCancellation = new CancellationTokenSource();
+        Task anotherCancel = workspace.SaveNoteAsync(note, note.Content, anotherCancellation.Token);
+        anotherCancellation.Cancel();
+        repository.CancelSave(anotherCancellation.Token);
+        await ExpectFailureAsync<OperationCanceledException>(() => anotherCancel);
+        Require(workspace.TryDiscardWorkingChanges(note) && note.Content == string.Empty,
+            "Auch ein abgebrochener Schreibauftrag muss zur letzten erfolgreichen Basis zurückführen.");
+
+        // Neuladen ersetzt das Modell. Dessen erste Bearbeitung muss den neuen Ladestand als Basis verwenden.
+        workspace.UpdateWorkingContent(note, "Vor Neuladen");
+        NoteDocument reloadedNote = await workspace.ReloadNoteAsync(note);
+        workspace.UpdateWorkingContent(reloadedNote, "Nach Neuladen");
+        Require(workspace.TryDiscardWorkingChanges(reloadedNote) && reloadedNote.Content == "# Original",
+            "Die Verwerfen-Basis eines neu geladenen Modells muss dessen eigener Ladestand sein.");
+
+        var unknownDirtyNote = new NoteDocument
+        {
+            Id = "Unbekannt.md", Title = "Unbekannt", RelativePath = "Unbekannt.md",
+            FullPath = Path.Combine(vaultPath, "Unbekannt.md"), Content = "Unbekannte Änderungen", IsDirty = true
+        };
+        Require(!workspace.TryDiscardWorkingChanges(unknownDirtyNote) && unknownDirtyNote.IsDirty,
+            "Ohne bekannte Basis dürfen Änderungen nicht als verworfen gelten.");
     }
 
     private static async Task ExpectFailureAsync<TException>(Func<Task> action) where TException : Exception

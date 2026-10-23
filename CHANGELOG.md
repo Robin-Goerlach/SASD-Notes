@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- „Nicht speichern“ verwirft lokale Änderungen nun auch im geladenen Notizmodell. Der Workspace erhält die letzte Lade-/Speicherbasis, stellt Links wieder her und verhindert Verwerfen während laufender Speicherung. Regressionstests und Verhaltensspezifikation ergänzt.
+
 - Speichern verwendet einen unabhängigen Textschnappschuss; neuere Editoränderungen bleiben dirty. Doppelte laufende Speicherbefehle werden abgewiesen, Fehler und Abbruch erlauben Wiederholung. Verzögerte Application-Tests und Speicherspezifikation ergänzt.
 
 - Vault-Wechsel übernimmt Notizen, Ordnerbaum und Recent Folders erst nach erfolgreichem Laden und Speichern der vorbereiteten Einstellungen. Fehler- und Abbruchtests sichern den Erhalt des bisherigen Dirty-State ab.
