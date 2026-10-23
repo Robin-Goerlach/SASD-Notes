@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Neuerzeugung von Notizen verwendet exklusives Veröffentlichen ohne Überschreiben; konkurrierende Namenskollisionen werden begrenzt wiederholt. Tests für gleichzeitige Erstellung, belegte Verzeichnisnamen und Abbruch ergänzt.
+
 - Fensterschließen wartet auf asynchrone Speicherbestätigung; doppelte Schließversuche werden gesperrt. Windows-Regressionstest mit verzögertem Abschluss und Abbruch ergänzt.
 
 - Markdown-Zeilenformatierung erhält angrenzende CRLF-Zeilenumbrüche und respektiert exklusive Auswahlenden; LF-/CRLF-Regressionstests ergänzt.

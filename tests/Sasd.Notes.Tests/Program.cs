@@ -31,6 +31,7 @@ internal static class Program
             await RunFolderTreeTests();
             await RunReloadNoteTests();
             await RunFileSystemRepositoryTests();
+            await RunConcurrentNoteCreationTests();
 
             Console.WriteLine("Alle SASD Notes Kernprüfungen wurden erfolgreich ausgeführt.");
             return 0;
@@ -433,6 +434,76 @@ internal static class Program
             {
                 Directory.Delete(temporaryVault, recursive: true);
             }
+        }
+    }
+
+    /// <summary>
+    /// Prüft Namenskollisionen und Abbruch an realen Dateien, ohne auf Zeitgeber oder Sleeps angewiesen zu sein.
+    /// </summary>
+    private static async Task RunConcurrentNoteCreationTests()
+    {
+        string temporaryVault = Path.Combine(Path.GetTempPath(), "sasd-notes-create-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temporaryVault);
+
+        try
+        {
+            var repository = new FileSystemVaultRepository(new WikiLinkParser());
+            string originalPath = Path.Combine(temporaryVault, "Gemeinsam.md");
+            const string originalContent = "Unveränderte ursprüngliche Notiz – 😀";
+            await File.WriteAllTextAsync(originalPath, originalContent);
+
+            // Mehrere Aufträge konkurrieren um dieselben freien Kandidaten und müssen sich jeweils eine eigene Datei sichern.
+            Task<NoteDocument>[] requests = Enumerable.Range(0, 12)
+                .Select(_ => repository.CreateNoteAsync(temporaryVault, null, "Gemeinsam"))
+                .ToArray();
+            NoteDocument[] createdNotes = await Task.WhenAll(requests);
+
+            AssertEx.Equal(12, createdNotes.Select(note => note.FullPath).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+                "Gleichzeitige Neuerzeugungen dürfen niemals denselben Zielpfad zurückgeben.");
+            AssertEx.Equal(originalContent, await File.ReadAllTextAsync(originalPath),
+                "Die bereits vorhandene Notiz muss nach konkurrierenden Neuerzeugungen unverändert sein.");
+
+            foreach (NoteDocument note in createdNotes)
+            {
+                AssertEx.Equal(note.Content, await File.ReadAllTextAsync(note.FullPath),
+                    "Jede erzeugte Notiz muss unter ihrem eigenen Pfad vollständig erhalten bleiben.");
+                AssertEx.Equal(Path.GetFileNameWithoutExtension(note.FullPath), note.Title,
+                    "Der Titel muss zum tatsächlich gesicherten Dateinamen gehören.");
+            }
+
+            AssertEx.Equal(13, Directory.GetFiles(temporaryVault, "*.md").Length,
+                "Für jeden erfolgreichen Auftrag muss genau eine Datei bestehen.");
+
+            // Auch ein Verzeichnis mit Markdown-Endung belegt den Namen und darf nicht überschrieben werden.
+            Directory.CreateDirectory(Path.Combine(temporaryVault, "Ordner.md"));
+            NoteDocument folderCollision = await repository.CreateNoteAsync(temporaryVault, null, "Ordner");
+            AssertEx.Equal("Ordner 2.md", Path.GetFileName(folderCollision.FullPath),
+                "Ein vorhandener Ordner muss bei der Namensvergabe berücksichtigt werden.");
+            AssertEx.True(Directory.Exists(Path.Combine(temporaryVault, "Ordner.md")),
+                "Das kollidierende Verzeichnis muss unverändert erhalten bleiben.");
+
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+            bool cancelled = false;
+            try
+            {
+                await repository.CreateNoteAsync(temporaryVault, "NichtAnlegen", "Abgebrochen", cancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                cancelled = true;
+            }
+
+            AssertEx.True(cancelled, "Ein abgebrochener Erstellungsauftrag muss als Abbruch gemeldet werden.");
+            AssertEx.False(Directory.Exists(Path.Combine(temporaryVault, "NichtAnlegen")),
+                "Ein bereits abgebrochener Auftrag darf keinen Zielordner erzeugen.");
+            AssertEx.Equal(0, Directory.GetFiles(temporaryVault, "*.sasd-tmp-*", SearchOption.AllDirectories).Length,
+                "Nach Kollisionen und Abbrüchen dürfen keine temporären Notizdateien zurückbleiben.");
+        }
+        finally
+        {
+            // Nur der eigens angelegte Test-Vault wird entfernt; produktive Benutzerdateien bleiben unberührt.
+            Directory.Delete(temporaryVault, recursive: true);
         }
     }
 

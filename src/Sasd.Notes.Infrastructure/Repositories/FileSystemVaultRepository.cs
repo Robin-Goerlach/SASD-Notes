@@ -109,7 +109,7 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             Directory.CreateDirectory(directory);
         }
 
-        await WriteTextAtomicallyAsync(normalizedNotePath, note.Content, cancellationToken);
+        await WriteTextAtomicallyAsync(normalizedNotePath, note.Content, replaceExisting: true, cancellationToken: cancellationToken);
         note.LastModifiedUtc = File.GetLastWriteTimeUtc(normalizedNotePath);
     }
 
@@ -180,6 +180,9 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     /// <inheritdoc />
     public async Task<NoteDocument> CreateNoteAsync(string vaultPath, string? relativeFolderPath, string title, CancellationToken cancellationToken = default)
     {
+        // Ein bereits abgebrochener Auftrag darf auch keine neuen Zielordner anlegen.
+        cancellationToken.ThrowIfCancellationRequested();
+
         string normalizedVaultPath = Path.GetFullPath(vaultPath);
         string safeTitle = FileNameHelper.ToSafeFileName(title);
         string fileName = safeTitle.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
@@ -197,23 +200,41 @@ public sealed class FileSystemVaultRepository : IVaultRepository
 
         Directory.CreateDirectory(fullFolderPath);
 
-        string fullPath = EnsureUniqueFilePath(fullFolderPath, fileName);
-        string relativePath = Path.GetRelativePath(normalizedVaultPath, fullPath);
-        string initialContent = $"# {Path.GetFileNameWithoutExtension(fullPath)}{Environment.NewLine}{Environment.NewLine}";
-
-        await WriteTextAtomicallyAsync(fullPath, initialContent, cancellationToken);
-
-        return new NoteDocument
+        // Ein freier Name ist nur ein Vorschlag: Ein anderer Vorgang kann ihn vor dem Commit belegen.
+        // Wiederholt sich die Kollision zu oft, wird der letzte Dateifehler kontrolliert weitergereicht.
+        const int maximumCollisionRetries = 32;
+        for (int attempt = 0; ; attempt++)
         {
-            Id = relativePath.Replace('\\', '/'),
-            Title = Path.GetFileNameWithoutExtension(fullPath),
-            FullPath = fullPath,
-            RelativePath = relativePath,
-            Content = initialContent,
-            Links = _wikiLinkParser.Parse(initialContent),
-            LastModifiedUtc = File.GetLastWriteTimeUtc(fullPath),
-            IsDirty = false
-        };
+            cancellationToken.ThrowIfCancellationRequested();
+            string fullPath = EnsureUniqueFilePath(fullFolderPath, fileName);
+            string relativePath = Path.GetRelativePath(normalizedVaultPath, fullPath);
+            string initialContent = $"# {Path.GetFileNameWithoutExtension(fullPath)}{Environment.NewLine}{Environment.NewLine}";
+
+            try
+            {
+                // Neuerzeugung darf niemals den Ersetzungspfad vorhandener Dateien verwenden.
+                await WriteTextAtomicallyAsync(fullPath, initialContent, replaceExisting: false, cancellationToken: cancellationToken);
+            }
+            catch (IOException) when (
+                attempt < maximumCollisionRetries &&
+                (File.Exists(fullPath) || Directory.Exists(fullPath)))
+            {
+                // Der Namenskonflikt wird mit einem neuen Kandidaten aufgelöst; fremde Inhalte bleiben erhalten.
+                continue;
+            }
+
+            return new NoteDocument
+            {
+                Id = relativePath.Replace('\\', '/'),
+                Title = Path.GetFileNameWithoutExtension(fullPath),
+                FullPath = fullPath,
+                RelativePath = relativePath,
+                Content = initialContent,
+                Links = _wikiLinkParser.Parse(initialContent),
+                LastModifiedUtc = File.GetLastWriteTimeUtc(fullPath),
+                IsDirty = false
+            };
+        }
     }
 
     /// <summary>
@@ -222,7 +243,7 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     private static string EnsureUniqueFilePath(string folderPath, string fileName)
     {
         string candidatePath = Path.Combine(folderPath, fileName);
-        if (!File.Exists(candidatePath))
+        if (!File.Exists(candidatePath) && !Directory.Exists(candidatePath))
         {
             return candidatePath;
         }
@@ -234,7 +255,7 @@ public sealed class FileSystemVaultRepository : IVaultRepository
         while (true)
         {
             string nextCandidatePath = Path.Combine(folderPath, $"{baseName} {suffix}{extension}");
-            if (!File.Exists(nextCandidatePath))
+            if (!File.Exists(nextCandidatePath) && !Directory.Exists(nextCandidatePath))
             {
                 return nextCandidatePath;
             }
@@ -244,14 +265,16 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     }
 
     /// <summary>
-    /// Schreibt Text über eine temporäre Datei und ersetzt anschließend das Ziel.
+    /// Schreibt Text über eine temporäre Datei und veröffentlicht ihn gemäß dem gewählten Schreibmodus.
     /// </summary>
     /// <param name="targetPath">Endgültiger Pfad der Datei.</param>
     /// <param name="content">Zu speichernder Inhalt.</param>
+    /// <param name="replaceExisting">Ob eine vorhandene Datei ersetzt werden soll; Neuerzeugung überschreibt niemals.</param>
     /// <param name="cancellationToken">Token zum kontrollierten Abbrechen.</param>
     private static async Task WriteTextAtomicallyAsync(
         string targetPath,
         string content,
+        bool replaceExisting,
         CancellationToken cancellationToken)
     {
         string temporaryPath = targetPath + ".sasd-tmp-" + Guid.NewGuid().ToString("N");
@@ -273,20 +296,27 @@ public sealed class FileSystemVaultRepository : IVaultRepository
                 await stream.FlushAsync(cancellationToken);
             }
 
-            // Der Austausch erfolgt erst, wenn der vollständige neue Inhalt sicher geschrieben wurde.
-            if (File.Exists(targetPath))
+            // Vor der Veröffentlichung wird ein während des Schreibens eingegangener Abbruch berücksichtigt.
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!replaceExisting)
             {
-                File.Replace(temporaryPath, targetPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                // Move ohne Overwrite entscheidet den Namenskonflikt atomar, auch wenn die Datei inzwischen existiert.
+                File.Move(temporaryPath, targetPath, overwrite: false);
             }
             else
             {
-                File.Move(temporaryPath, targetPath);
+                try
+                {
+                    // Eine zwischenzeitlich gelöschte Notiz darf beim Speichern nicht still neu erzeugt werden.
+                    File.Replace(temporaryPath, targetPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                }
+                catch (PlatformNotSupportedException)
+                {
+                    // Der Kompatibilitätspfad ist ausschließlich für ausdrücklich angefordertes Ersetzen zulässig.
+                    File.Move(temporaryPath, targetPath, overwrite: true);
+                }
             }
-        }
-        catch (PlatformNotSupportedException)
-        {
-            // File.Replace ist auf einzelnen Dateisystemen nicht verfügbar; Move ersetzt dort ebenfalls innerhalb des Zielverzeichnisses.
-            File.Move(temporaryPath, targetPath, overwrite: true);
         }
         finally
         {
