@@ -30,6 +30,7 @@ internal static class Program
             await RunUnresolvedLinkTests();
             await RunFolderTreeTests();
             await RunReloadNoteTests();
+            await NoteReloadTests.RunAsync();
             await RunFileSystemRepositoryTests();
             await RunConcurrentNoteCreationTests();
             await WorkspaceSwitchTests.RunAsync();

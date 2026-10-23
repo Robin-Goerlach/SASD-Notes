@@ -55,24 +55,67 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             // Bei größeren Vaults soll das Laden trotzdem sauber abbrechbar bleiben.
             cancellationToken.ThrowIfCancellationRequested();
 
-            string content = await File.ReadAllTextAsync(file, cancellationToken);
-            string relativePath = Path.GetRelativePath(normalizedVaultPath, file);
-            string title = Path.GetFileNameWithoutExtension(file);
-
-            notes.Add(new NoteDocument
-            {
-                Id = relativePath.Replace('\\', '/'),
-                Title = title,
-                FullPath = file,
-                RelativePath = relativePath,
-                Content = content,
-                Links = _wikiLinkParser.Parse(content),
-                LastModifiedUtc = File.GetLastWriteTimeUtc(file),
-                IsDirty = false
-            });
+            notes.Add(await ReadNoteFileAsync(normalizedVaultPath, file, cancellationToken));
         }
 
         return notes;
+    }
+
+    /// <inheritdoc />
+    public async Task<NoteDocument> LoadNoteAsync(
+        string vaultPath,
+        string fullNotePath,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(vaultPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fullNotePath);
+
+        if (!Path.IsPathFullyQualified(fullNotePath))
+        {
+            throw new ArgumentException("Der Notizpfad muss vollständig angegeben werden.", nameof(fullNotePath));
+        }
+
+        string normalizedVaultPath = Path.GetFullPath(vaultPath);
+        string normalizedNotePath = Path.GetFullPath(fullNotePath);
+
+        // Einzelzugriffe dürfen dieselben Vault-Grenzen wie Schreibzugriffe nicht verlassen.
+        EnsurePathInsideVault(normalizedVaultPath, normalizedNotePath);
+        if (!string.Equals(Path.GetExtension(normalizedNotePath), ".md", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Es dürfen nur Markdown-Dateien geladen werden.");
+        }
+
+        if (!File.Exists(normalizedNotePath))
+        {
+            throw new FileNotFoundException("Die Markdown-Datei wurde nicht gefunden.", normalizedNotePath);
+        }
+
+        return await ReadNoteFileAsync(normalizedVaultPath, normalizedNotePath, cancellationToken);
+    }
+
+    /// <summary>
+    /// Verwendet beim Vault-Scan und Einzelzugriff dieselben Regeln für Text, Titel, Links und Zeitstempel.
+    /// </summary>
+    private async Task<NoteDocument> ReadNoteFileAsync(
+        string vaultPath,
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        string content = await File.ReadAllTextAsync(filePath, cancellationToken);
+        string relativePath = Path.GetRelativePath(vaultPath, filePath);
+
+        return new NoteDocument
+        {
+            Id = relativePath.Replace('\\', '/'),
+            Title = Path.GetFileNameWithoutExtension(filePath),
+            FullPath = filePath,
+            RelativePath = relativePath,
+            Content = content,
+            Links = _wikiLinkParser.Parse(content),
+            LastModifiedUtc = File.GetLastWriteTimeUtc(filePath),
+            IsDirty = false
+        };
     }
 
     /// <inheritdoc />

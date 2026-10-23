@@ -42,6 +42,7 @@ internal static class WorkspaceSaveTests
         Task saving = workspace.SaveNoteAsync(note, "[[Gespeichert]] 😀\r\n");
         Require(!saving.IsCompleted, "Der Test muss einen tatsächlich offenen Schreibauftrag prüfen.");
         NoteDocument firstSnapshot = repository.PendingNote!;
+        await ExpectFailureAsync<InvalidOperationException>(() => workspace.ReloadNoteAsync(note));
         Require(!workspace.TryDiscardWorkingChanges(note), "Während einer Speicherung darf nicht verworfen werden.");
         Require(!ReferenceEquals(note, firstSnapshot), "Das Repository darf nicht das veränderliche Arbeitsmodell erhalten.");
         workspace.UpdateWorkingContent(note, "[[Neu]] Ω\n");
@@ -207,6 +208,17 @@ internal static class WorkspaceSaveTests
                 }
             };
             return Task.FromResult(notes);
+        }
+
+        /// <inheritdoc />
+        public Task<NoteDocument> LoadNoteAsync(string vaultPath, string fullNotePath, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(new NoteDocument
+            {
+                Id = "Notiz.md", Title = "Notiz", FullPath = fullNotePath,
+                RelativePath = "Notiz.md", Content = "# Original", LastModifiedUtc = SavedTimestamp
+            });
         }
 
         /// <inheritdoc />

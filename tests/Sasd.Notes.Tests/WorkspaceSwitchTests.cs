@@ -182,7 +182,11 @@ internal static class WorkspaceSwitchTests
             return Folders;
         }
 
-        // Nicht verwendete Schreiboperationen schlagen bewusst fehl, damit unbeabsichtigte Aufrufe im Test auffallen.
+        // Nicht verwendete Einzelzugriffe und Schreiboperationen schlagen bei unbeabsichtigten Aufrufen bewusst fehl.
+        /// <inheritdoc />
+        public Task<NoteDocument> LoadNoteAsync(string vaultPath, string fullNotePath, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task SaveNoteAsync(string vaultPath, NoteDocument note, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
         public bool HasChangedSinceLoaded(NoteDocument note) => false;

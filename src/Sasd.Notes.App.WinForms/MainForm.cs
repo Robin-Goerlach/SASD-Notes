@@ -233,9 +233,17 @@ public partial class MainForm : Form
             }
         }
 
+        NoteDocument noteToReload = _currentNote;
         try
         {
-            NoteDocument reloadedNote = await _workspaceService.ReloadNoteAsync(_currentNote);
+            NoteDocument reloadedNote = await _workspaceService.ReloadNoteAsync(noteToReload);
+
+            // Der Benutzer kann inzwischen eine andere Notiz geöffnet haben; der Leseabschluss darf ihn nicht zurückholen.
+            if (!ReferenceEquals(_currentNote, noteToReload))
+            {
+                return;
+            }
+
             OpenNoteInEditor(reloadedNote);
             SetStatus($"Notiz neu geladen: {reloadedNote.RelativePath}");
         }

@@ -23,6 +23,20 @@ public interface IVaultRepository
     Task<IReadOnlyList<NoteDocument>> LoadAllNotesAsync(string vaultPath, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lädt genau eine Markdown-Notiz innerhalb des angegebenen Vaults.
+    /// </summary>
+    /// <param name="vaultPath">Pfad zum Vault-Wurzelverzeichnis.</param>
+    /// <param name="fullNotePath">Vollständiger Pfad der zu lesenden Markdown-Datei.</param>
+    /// <param name="cancellationToken">Abbruchtoken.</param>
+    /// <returns>Ein frisch geladenes Notizmodell ohne lokale Änderungen.</returns>
+    /// <exception cref="InvalidOperationException">Der Pfad liegt außerhalb des Vaults oder bezeichnet keine Markdown-Datei.</exception>
+    /// <exception cref="FileNotFoundException">Die angeforderte Datei wurde nicht gefunden.</exception>
+    Task<NoteDocument> LoadNoteAsync(
+        string vaultPath,
+        string fullNotePath,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Speichert eine Notiz zurück in das Dateisystem.
     /// </summary>
     /// <param name="vaultPath">Pfad zum geöffneten Vault-Wurzelverzeichnis.</param>

@@ -379,6 +379,7 @@ public sealed class NotesWorkspaceService
     /// <param name="cancellationToken">Abbruchtoken.</param>
     /// <returns>Der frisch geladene Notizstand.</returns>
     /// <exception cref="FileNotFoundException">Wenn die Datei nicht mehr existiert.</exception>
+    /// <exception cref="InvalidOperationException">Bei laufendem Speichern, veraltetem Modell oder Änderungen während des Ladens.</exception>
     public async Task<NoteDocument> ReloadNoteAsync(
         NoteDocument note,
         CancellationToken cancellationToken = default)
@@ -390,32 +391,32 @@ public sealed class NotesWorkspaceService
             throw new InvalidOperationException("Es ist kein Vault geöffnet.");
         }
 
-        // Der Repository-Scan verwendet dieselben Lade- und Parserregeln wie das normale Öffnen eines Vaults.
-        IReadOnlyList<NoteDocument> refreshedNotes =
-            await _vaultRepository.LoadAllNotesAsync(CurrentVault.RootPath, cancellationToken);
-
-        NoteDocument? refreshedNote = refreshedNotes.FirstOrDefault(candidate =>
-            string.Equals(candidate.FullPath, note.FullPath, StringComparison.OrdinalIgnoreCase));
-
-        if (refreshedNote is null)
+        if (_notesBeingSaved.Contains(note) || !_loadedNotes.Contains(note))
         {
-            throw new FileNotFoundException("Die Markdown-Datei existiert nicht mehr.", note.FullPath);
+            throw new InvalidOperationException("Die Notiz wird gespeichert oder gehört nicht mehr zum aktiven Workspace.");
         }
 
-        int noteIndex = _loadedNotes.FindIndex(candidate =>
-            string.Equals(candidate.FullPath, note.FullPath, StringComparison.OrdinalIgnoreCase));
+        // Der Zustand vor dem await dient als Übernahmebedingung; ein verspätetes Ergebnis darf keine neueren Änderungen ersetzen.
+        VaultInfo vaultAtStart = CurrentVault;
+        string contentAtStart = note.Content;
+        bool wasDirty = note.IsDirty;
+        DateTime timestampAtStart = note.LastModifiedUtc;
+        NoteDocument refreshedNote = await _vaultRepository.LoadNoteAsync(
+            vaultAtStart.RootPath, note.FullPath, cancellationToken);
 
-        if (noteIndex >= 0)
+        cancellationToken.ThrowIfCancellationRequested();
+        int noteIndex = _loadedNotes.IndexOf(note);
+        if (!ReferenceEquals(CurrentVault, vaultAtStart) || noteIndex < 0 ||
+            _notesBeingSaved.Contains(note) ||
+            !string.Equals(note.Content, contentAtStart, StringComparison.Ordinal) ||
+            note.IsDirty != wasDirty || note.LastModifiedUtc != timestampAtStart)
         {
-            _loadedNotes[noteIndex] = refreshedNote;
-        }
-        else
-        {
-            _loadedNotes.Add(refreshedNote);
-            SortNotes();
+            throw new InvalidOperationException(
+                "Die Notiz oder der Workspace wurde während des Neuladens verändert. Bitte erneut laden.");
         }
 
-        // Nach erfolgreichem Neuladen wird der alte Bearbeitungsstand nicht mehr benötigt.
+        // Ausschließlich die angeforderte Notiz wird ersetzt. Andere Arbeitsmodelle und deren Dirty-State bleiben erhalten.
+        _loadedNotes[noteIndex] = refreshedNote;
         _savedContents.Remove(note);
         return refreshedNote;
     }

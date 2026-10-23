@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Gezielter Repository-Einzelzugriff für das Neuladen ergänzt. Gesperrte Nachbardateien beeinflussen den Vorgang nicht mehr; verspätete Ergebnisse werden nach Bearbeitung, Vault-Wechsel oder Abbruch verworfen. Pfad-, Datei- und Application-Regressionstests ergänzt.
+
 - „Nicht speichern“ verwirft lokale Änderungen nun auch im geladenen Notizmodell. Der Workspace erhält die letzte Lade-/Speicherbasis, stellt Links wieder her und verhindert Verwerfen während laufender Speicherung. Regressionstests und Verhaltensspezifikation ergänzt.
 
 - Speichern verwendet einen unabhängigen Textschnappschuss; neuere Editoränderungen bleiben dirty. Doppelte laufende Speicherbefehle werden abgewiesen, Fehler und Abbruch erlauben Wiederholung. Verzögerte Application-Tests und Speicherspezifikation ergänzt.
