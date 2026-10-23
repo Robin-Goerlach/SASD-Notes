@@ -28,6 +28,22 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     }
 
     /// <inheritdoc />
+    public IReadOnlyList<string> LoadFolderPaths(string vaultPath)
+    {
+        string normalizedVaultPath = Path.GetFullPath(vaultPath);
+        if (!Directory.Exists(normalizedVaultPath))
+        {
+            throw new DirectoryNotFoundException($"Der Vault-Ordner wurde nicht gefunden: {vaultPath}");
+        }
+
+        // Leere Ordner müssen ebenfalls im Navigationsbaum erscheinen und werden deshalb unabhängig von Notizen geladen.
+        return Directory.GetDirectories(normalizedVaultPath, "*", SearchOption.AllDirectories)
+            .Select(path => Path.GetRelativePath(normalizedVaultPath, path).Replace('\\', '/'))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<NoteDocument>> LoadAllNotesAsync(string vaultPath, CancellationToken cancellationToken = default)
     {
         string normalizedVaultPath = Path.GetFullPath(vaultPath);
@@ -73,14 +89,92 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             throw new InvalidOperationException("Es dürfen nur Markdown-Dateien gespeichert werden.");
         }
 
+        if (!File.Exists(normalizedNotePath))
+        {
+            throw new FileNotFoundException("Die zu speichernde Markdown-Datei wurde nicht gefunden.", normalizedNotePath);
+        }
+
+        // Verhindert, dass Änderungen eines anderen Editors stillschweigend überschrieben werden.
+        DateTime currentLastModifiedUtc = File.GetLastWriteTimeUtc(normalizedNotePath);
+        if (note.LastModifiedUtc != default && currentLastModifiedUtc != note.LastModifiedUtc)
+        {
+            throw new IOException(
+                "Die Markdown-Datei wurde seit dem Laden extern geändert. " +
+                "Bitte laden Sie den Vault neu und prüfen Sie die Änderungen.");
+        }
+
         string? directory = Path.GetDirectoryName(normalizedNotePath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
-        await File.WriteAllTextAsync(normalizedNotePath, note.Content, cancellationToken);
+        await WriteTextAtomicallyAsync(normalizedNotePath, note.Content, cancellationToken);
         note.LastModifiedUtc = File.GetLastWriteTimeUtc(normalizedNotePath);
+    }
+
+    /// <inheritdoc />
+    public bool HasChangedSinceLoaded(NoteDocument note)
+    {
+        ArgumentNullException.ThrowIfNull(note);
+
+        // Eine gelöschte Datei gilt ebenfalls als externe Änderung.
+        if (!File.Exists(note.FullPath))
+        {
+            return true;
+        }
+
+        DateTime currentLastModifiedUtc = File.GetLastWriteTimeUtc(note.FullPath);
+        return note.LastModifiedUtc != default && currentLastModifiedUtc != note.LastModifiedUtc;
+    }
+
+    /// <inheritdoc />
+    public Task<string> CreateFolderAsync(
+        string vaultPath,
+        string? relativeParentPath,
+        string folderName,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(folderName))
+        {
+            throw new ArgumentException("Der Ordnername darf nicht leer sein.", nameof(folderName));
+        }
+
+        string safeFolderName = FileNameHelper.ToSafeFileName(folderName);
+        if (safeFolderName is "." or "..")
+        {
+            throw new ArgumentException("Der Ordnername ist nicht zulässig.", nameof(folderName));
+        }
+
+        string normalizedVaultPath = Path.GetFullPath(vaultPath);
+        string parentPath = string.IsNullOrWhiteSpace(relativeParentPath)
+            ? normalizedVaultPath
+            : Path.GetFullPath(Path.Combine(
+                normalizedVaultPath,
+                relativeParentPath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar)));
+
+        // Sowohl der übergeordnete Ordner als auch der neue Zielordner müssen im Vault liegen.
+        EnsurePathInsideVault(normalizedVaultPath, parentPath);
+        if (!Directory.Exists(parentPath))
+        {
+            throw new DirectoryNotFoundException("Der übergeordnete Ordner wurde nicht gefunden.");
+        }
+
+        string targetPath = Path.Combine(parentPath, safeFolderName);
+        EnsurePathInsideVault(normalizedVaultPath, targetPath);
+
+        if (Directory.Exists(targetPath) || File.Exists(targetPath))
+        {
+            throw new IOException($"Der Ordner existiert bereits: {safeFolderName}");
+        }
+
+        // Der Ordner wird erst nach allen Sicherheitsprüfungen angelegt.
+        Directory.CreateDirectory(targetPath);
+
+        string relativePath = Path.GetRelativePath(normalizedVaultPath, targetPath).Replace('\\', '/');
+        return Task.FromResult(relativePath);
     }
 
     /// <inheritdoc />
@@ -107,7 +201,7 @@ public sealed class FileSystemVaultRepository : IVaultRepository
         string relativePath = Path.GetRelativePath(normalizedVaultPath, fullPath);
         string initialContent = $"# {Path.GetFileNameWithoutExtension(fullPath)}{Environment.NewLine}{Environment.NewLine}";
 
-        await File.WriteAllTextAsync(fullPath, initialContent, cancellationToken);
+        await WriteTextAtomicallyAsync(fullPath, initialContent, cancellationToken);
 
         return new NoteDocument
         {
@@ -146,6 +240,60 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             }
 
             suffix++;
+        }
+    }
+
+    /// <summary>
+    /// Schreibt Text über eine temporäre Datei und ersetzt anschließend das Ziel.
+    /// </summary>
+    /// <param name="targetPath">Endgültiger Pfad der Datei.</param>
+    /// <param name="content">Zu speichernder Inhalt.</param>
+    /// <param name="cancellationToken">Token zum kontrollierten Abbrechen.</param>
+    private static async Task WriteTextAtomicallyAsync(
+        string targetPath,
+        string content,
+        CancellationToken cancellationToken)
+    {
+        string temporaryPath = targetPath + ".sasd-tmp-" + Guid.NewGuid().ToString("N");
+
+        try
+        {
+            // Die temporäre Datei liegt im selben Verzeichnis, damit der spätere Austausch innerhalb desselben Dateisystems bleibt.
+            await using (FileStream stream = new(
+                temporaryPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 4096,
+                options: FileOptions.SequentialScan | FileOptions.WriteThrough))
+            await using (var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                await writer.WriteAsync(content.AsMemory(), cancellationToken);
+                await writer.FlushAsync(cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+            }
+
+            // Der Austausch erfolgt erst, wenn der vollständige neue Inhalt sicher geschrieben wurde.
+            if (File.Exists(targetPath))
+            {
+                File.Replace(temporaryPath, targetPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            }
+            else
+            {
+                File.Move(temporaryPath, targetPath);
+            }
+        }
+        catch (PlatformNotSupportedException)
+        {
+            // File.Replace ist auf einzelnen Dateisystemen nicht verfügbar; Move ersetzt dort ebenfalls innerhalb des Zielverzeichnisses.
+            File.Move(temporaryPath, targetPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
         }
     }
 

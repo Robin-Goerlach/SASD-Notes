@@ -18,7 +18,8 @@ public static class FileNameHelper
             return "Neue Notiz";
         }
 
-        var invalidCharacters = Path.GetInvalidFileNameChars();
+        // Die Windows-Regeln gelten unabhängig vom Betriebssystem des Testlaufs.
+        const string invalidCharacters = "<>:\"/\\|?*";
         var buffer = new char[title.Length];
         int index = 0;
 
@@ -34,9 +35,50 @@ public static class FileNameHelper
 
         string cleaned = new string(buffer, 0, index);
 
-        // Mehrfache Leerzeichen werden zusammengedrückt.
-        string normalizedWhitespace = string.Join(' ', cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        // Windows behandelt abschließende Punkte und Leerzeichen nicht zuverlässig als Dateinamenbestandteil.
+        string normalizedWhitespace = string.Join(' ', cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .TrimEnd(' ', '.');
 
-        return string.IsNullOrWhiteSpace(normalizedWhitespace) ? "Neue Notiz" : normalizedWhitespace;
+        if (string.IsNullOrWhiteSpace(normalizedWhitespace))
+        {
+            return "Neue Notiz";
+        }
+
+        // Der Zusatz muss vor der ersten Erweiterung stehen: CON.md_ wäre weiterhin reserviert.
+        if (IsReservedWindowsName(normalizedWhitespace))
+        {
+            int extensionIndex = normalizedWhitespace.IndexOf('.');
+            return extensionIndex >= 0
+                ? normalizedWhitespace.Insert(extensionIndex, "_")
+                : normalizedWhitespace + "_";
+        }
+
+        return normalizedWhitespace;
+    }
+
+    /// <summary>
+    /// Prüft die unter Windows reservierten Geräte- und DOS-Namen.
+    /// </summary>
+    private static bool IsReservedWindowsName(string value)
+    {
+        string baseName = value.Split('.', 2)[0];
+
+        if (baseName.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
+            baseName.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
+            baseName.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
+            baseName.Equals("NUL", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (baseName.Length == 4 &&
+            (baseName.StartsWith("COM", StringComparison.OrdinalIgnoreCase) ||
+             baseName.StartsWith("LPT", StringComparison.OrdinalIgnoreCase)) &&
+            baseName[3] is >= '1' and <= '9')
+        {
+            return true;
+        }
+
+        return false;
     }
 }

@@ -42,6 +42,7 @@ repository structure for future implementations and their documentation.
 - Open and edit Markdown notes
 - Save notes back to disk
 - Create new notes in the selected folder
+- Create and display empty vault subfolders
 - Recent Folders menu
 - Markdown editor toolbar
 - Wiki-link parser (`[[Note]]`, `[[Folder/Note]]`, `[[Note|Alias]]`)
@@ -51,6 +52,9 @@ repository structure for future implementations and their documentation.
 - Outline panel from Markdown headings
 - Info panel and status bar metrics
 - Dirty-state handling with save prompt
+- Controlled reload of externally changed notes
+- Atomic and conflict-protected note and settings saving
+- Windows-safe filename and folder normalization
 
 ## Build requirements
 
@@ -72,6 +76,7 @@ dotnet restore
 dotnet build Sasd.Notes.sln
 dotnet test Sasd.Notes.sln
 dotnet run --project .\tests\Sasd.Notes.Tests\Sasd.Notes.Tests.csproj
+dotnet publish .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj --configuration Release --self-contained false
 dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj
 ```
 
@@ -153,6 +158,7 @@ contract includes concepts such as:
 - [MVP / V1 project plan](docs/10_Projektplan_MVP_V1.md)
 - [V1 / V2 backlog](docs/11_Backlog_V1_V2.md)
 - [Multi-language repository structure](docs/12_Multi_Language_Repository_Struktur.md)
+- [V1 release checklist](docs/14_Release_Checkliste_V1.md)
 
 The repository-level [`AGENTS.md`](AGENTS.md) contains the general development
 rules. The .NET-specific guidance is available in
@@ -161,5 +167,8 @@ rules. The .NET-specific guidance is available in
 ## Development status
 
 The .NET 8 WinForms reference implementation is the first development
-priority. The multi-language layout prepares future ports without requiring
-four applications to be developed in parallel or slowing down V1.
+priority. The current branch is release-candidate ready from an automated
+build, test, publish, and packaging perspective. A manual Windows smoke test
+of the generated ZIP artifact is still required before an official V1 tag.
+The multi-language layout prepares future ports without requiring four
+applications to be developed in parallel or slowing down V1.
