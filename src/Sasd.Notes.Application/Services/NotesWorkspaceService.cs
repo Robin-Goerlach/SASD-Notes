@@ -90,8 +90,12 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
-    /// Öffnet einen Vault und lädt alle Markdown-Dateien in den Arbeitsspeicher.
+    /// Öffnet einen Vault und übernimmt seinen Zustand erst nach erfolgreicher Vorbereitung und Einstellungsspeicherung.
     /// </summary>
+    /// <param name="vaultPath">Pfad zum gewünschten Vault-Wurzelverzeichnis.</param>
+    /// <param name="cancellationToken">Token zum Abbrechen der Vorbereitung.</param>
+    /// <returns>Informationen über den erfolgreich geöffneten Vault.</returns>
+    /// <remarks>Bei einem Fehler oder beobachteten Abbruch bleibt der bisherige Workspace im Arbeitsspeicher erhalten.</remarks>
     public async Task<VaultInfo> OpenVaultAsync(string vaultPath, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(vaultPath))
@@ -111,19 +115,29 @@ public sealed class NotesWorkspaceService
             RootPath = normalizedVaultPath
         };
 
+        // Alle potenziell fehlschlagenden Leseoperationen arbeiten zunächst auf einem separaten Kandidaten.
+        // Insbesondere darf ein fehlgeschlagener Ordnerscan die bisherigen Notizen nicht bereits ersetzen.
         IReadOnlyList<NoteDocument> notes = await _vaultRepository.LoadAllNotesAsync(normalizedVaultPath, cancellationToken);
+        List<NoteDocument> preparedNotes = notes
+            .OrderBy(note => note.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        List<string> preparedFolders = _vaultRepository.LoadFolderPaths(normalizedVaultPath).ToList();
 
-        // Der neue Zustand wird erst übernommen, wenn das Laden erfolgreich abgeschlossen wurde.
+        cancellationToken.ThrowIfCancellationRequested();
+        AppSettings preparedSettings = CreateSettingsWithRecentFolder(normalizedVaultPath);
+
+        // Auch die Einstellungen werden zuerst gespeichert. Scheitert dies, bleibt der bisherige Workspace vollständig aktiv.
+        await _settingsRepository.SaveAsync(preparedSettings, cancellationToken);
+
+        // Erst jetzt wird der vollständige neue Zustand ohne weiteren await übernommen.
+        // Nach erfolgreichem Speichern wird kein neuer Abbruchpunkt mehr eingefügt, damit Einstellungen und Workspace zusammenpassen.
         _loadedNotes.Clear();
-        _loadedNotes.AddRange(notes.OrderBy(note => note.RelativePath, StringComparer.OrdinalIgnoreCase));
-
-        // Ordner werden separat geladen, damit auch leere Themenordner im Baum sichtbar bleiben.
+        _loadedNotes.AddRange(preparedNotes);
         _loadedFolderPaths.Clear();
-        _loadedFolderPaths.AddRange(_vaultRepository.LoadFolderPaths(normalizedVaultPath));
-
+        _loadedFolderPaths.AddRange(preparedFolders);
+        _settings = preparedSettings;
         CurrentVault = vaultInfo;
 
-        await RememberRecentFolderAsync(normalizedVaultPath, cancellationToken);
         return vaultInfo;
     }
 
@@ -429,27 +443,36 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
-    /// Merkt sich einen Vault in der Liste der zuletzt verwendeten Ordner.
+    /// Bereitet neue Recent-Folder-Einstellungen vor, ohne den aktuell gültigen Stand zu verändern.
     /// </summary>
-    private async Task RememberRecentFolderAsync(string vaultPath, CancellationToken cancellationToken)
+    /// <param name="vaultPath">Vollständiger Pfad des erfolgreich eingelesenen Vault-Kandidaten.</param>
+    /// <returns>Ein unabhängiger Einstellungskandidat für den bevorstehenden Wechsel.</returns>
+    private AppSettings CreateSettingsWithRecentFolder(string vaultPath)
     {
-        string normalizedPath = Path.GetFullPath(vaultPath);
-        DateTime nowUtc = DateTime.UtcNow;
-
-        _settings.RecentFolders = _settings.RecentFolders
-            .Where(item => !string.Equals(item.Path, normalizedPath, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        _settings.RecentFolders.Insert(0, new RecentFolderEntry
+        var recentFolders = new List<RecentFolderEntry>
         {
-            Path = normalizedPath,
-            LastOpenedUtc = nowUtc
-        });
+            new()
+            {
+                Path = vaultPath,
+                LastOpenedUtc = DateTime.UtcNow
+            }
+        };
 
-        _settings.RecentFolders = _settings.RecentFolders.Take(10).ToList();
-        _settings.LastOpenedVaultPath = normalizedPath;
+        // Eigene Einträge verhindern, dass ein fehlgeschlagener Speicherversuch die aktiven Einstellungen verändert.
+        recentFolders.AddRange(_settings.RecentFolders
+            .Where(item => !string.Equals(item.Path, vaultPath, StringComparison.OrdinalIgnoreCase))
+            .Take(9)
+            .Select(item => new RecentFolderEntry
+            {
+                Path = item.Path,
+                LastOpenedUtc = item.LastOpenedUtc
+            }));
 
-        await _settingsRepository.SaveAsync(_settings, cancellationToken);
+        return new AppSettings
+        {
+            LastOpenedVaultPath = vaultPath,
+            RecentFolders = recentFolders
+        };
     }
 
     /// <summary>
