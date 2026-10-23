@@ -33,6 +33,30 @@ UTF-16-Zeichenpositionen, wie sie die .NET-Editoranbindung verwendet.
 Die Fence-Regeln orientieren sich an
 [CommonMark 0.31.2, Abschnitt 4.5](https://spec.commonmark.org/0.31.2/#fenced-code-blocks).
 
+## Einzeiliger Inline-Code
+
+Der Wiki-Link-Parser überspringt zusätzlich Code-Spans mit gleich langen
+öffnenden und schließenden Backtick-Gruppen innerhalb einer Zeile.
+
+- Einzelne oder mehrere Backticks sind als Marker möglich. Anders lange
+  Gruppen innerhalb eines Spans schließen ihn nicht.
+- Ein öffnender Backtick kann außerhalb eines Code-Spans per Backslash escapet
+  werden. Paarweise Backslashes werden dabei als Literale behandelt.
+- Innerhalb eines Spans hat ein Backslash keine Escape-Wirkung auf den Abschluss.
+- Nicht geschlossene Gruppen sind Literaltext. Spätere, anders lange Gruppen
+  können weiterhin eigene Code-Spans bilden.
+- Ein Wiki-Link wird auch dann ausgeschlossen, wenn nur ein Teil seiner Syntax
+  mit einem Code-Span überlappt.
+- Echte Links außerhalb dieser Bereiche behalten ihre Originalpositionen.
+- Eine ATX-Überschrift mit Inline-Code im Titel bleibt ein Gliederungspunkt.
+- Eingefasste Codeblöcke werden zuerst abgegrenzt; ihre Backticks beeinflussen
+  die Inline-Erkennung nicht.
+
+Die gleich langen Marker und das Escape-Verhalten orientieren sich an
+[CommonMark 0.31.2, Abschnitt 6.1](https://spec.commonmark.org/0.31.2/#code-spans).
+Die V1-Erkennung ist bewusst **einzeilig**: Mehrzeilige Code-Spans werden noch
+nicht erkannt, und Marker werden nicht über Zeilen- oder Absatzgrenzen gepaart.
+
 ## Zeilengrenzen
 
 Wiki-Links dürfen sich nicht über LF- oder CRLF-Zeilengrenzen erstrecken und
@@ -43,7 +67,7 @@ Insbesondere darf ein einzelnes Hash-Zeichen keine Folgezeile als Titel aufnehme
 
 ## Grenzen
 
-Diese Erkennung ist kein vollständiger Markdown-Syntaxbaum. Inline-Code,
+Diese Erkennung ist kein vollständiger Markdown-Syntaxbaum. Mehrzeilige Code-Spans,
 nur durch Einrückung markierte Codeblöcke, HTML-Kommentare und verschachtelte
 Container wie Listen oder Zitate werden hier nicht als weitere Codekontexte
 ausgewertet. Setext-Überschriften und die vollständige ATX-Syntax sind ebenfalls

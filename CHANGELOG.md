@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Einzeilige Inline-Code-Spans werden bei Wiki-Links, Navigation und Backlinks ausgelassen. Gleich lange Backtick-Gruppen, Escapes, offene Marker und überlappende Linksyntax sind getestet. Originalpositionen bleiben erhalten; Mehrzeilen-Spans bleiben ausdrücklich außerhalb dieser V1-Teilmenge.
+
 - Gemeinsame Erkennung eingefasster Markdown-Codeblöcke für Wiki-Links und Outline ergänzt. Beispiele erzeugen keine Backlinks oder fehlenden Linkziele mehr. Zeilengrenzen der Parser korrigiert; Unicode-, LF-/CRLF-, Marker- und Workspace-Regressionstests hinzugefügt.
 
 - Vault-Übergänge gegen überlappende Öffnungs-, Bearbeitungs- und Schreibbefehle abgesichert. Laufende Schreibaufträge verhindern den Wechsel; Lade- und Einstellungsphase bleiben geschützt. WinForms sperrt Bedienung und Schließen während des Ladens. Verzögerte Application- und Windows-Fenstertests ergänzt.

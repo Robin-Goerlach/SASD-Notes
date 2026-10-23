@@ -25,13 +25,16 @@ public sealed class WikiLinkParser : IWikiLinkParser
         }
 
         IReadOnlyList<(int Start, int End)> codeBlocks = MarkdownCodeBlockScanner.FindBlocks(markdownContent);
+        IReadOnlyList<(int Start, int End)> inlineCodeSpans = MarkdownInlineCodeScanner.FindSpans(markdownContent, codeBlocks);
         var matches = WikiLinkRegex.Matches(markdownContent);
         var result = new List<WikiLink>(matches.Count);
 
         foreach (Match match in matches)
         {
-            // Codebeispiele erzeugen weder navigierbare Wiki-Links noch Einträge in der Dokumentgliederung.
-            if (MarkdownCodeBlockScanner.ContainsPosition(match.Index, codeBlocks))
+            // Auch ein Link, der erst in einen Code-Span hineinragt, ist kein vollständiger Wiki-Link.
+            // Die Prüfung verwendet Bereiche im Originaltext, ohne die gemeldeten Linkpositionen zu verschieben.
+            if (MarkdownCodeBlockScanner.ContainsPosition(match.Index, codeBlocks) ||
+                inlineCodeSpans.Any(span => match.Index < span.End && match.Index + match.Length > span.Start))
             {
                 continue;
             }

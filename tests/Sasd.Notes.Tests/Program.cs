@@ -22,6 +22,7 @@ internal static class Program
             RunWikiLinkParserTests();
             RunOutlineParserTests();
             MarkdownCodeBlockTests.Run();
+            MarkdownInlineCodeTests.Run();
             RunSearchServiceTests();
             RunDisplayFormattingTests();
             RunEditorFormattingTests();
@@ -371,6 +372,24 @@ internal static class Program
                 sourceNote, codeExample.IndexOf("[[Vorhanden]]", StringComparison.Ordinal), "[[Vorhanden]]")),
                 "Die vollständige Auswahl eines echten Links muss weiterhin navigierbar bleiben.");
             AssertEx.Equal(1, workspace.GetOutline(sourceNote).Count, "Der Workspace darf nur die echte Überschrift anzeigen.");
+
+            const string inlineExample = "# Titel `[[Fehlt]]`\nText `[[Projekte/Plan.md]]` [[Vorhanden]]";
+            workspace.UpdateWorkingContent(sourceNote, inlineExample);
+            AssertEx.Equal(0, workspace.GetUnresolvedLinks(sourceNote).Count,
+                "Ziele in Inline-Code dürfen keine Warnungen im Workspace erzeugen.");
+            AssertEx.True(workspace.TryResolveLink(sourceNote, inlineExample.IndexOf("[[Projekte", StringComparison.Ordinal) + 2, null) is null,
+                "Die Cursornavigation muss Wiki-Links innerhalb von Inline-Code ignorieren.");
+            AssertEx.True(workspace.TryResolveLink(sourceNote, inlineExample.IndexOf("[[Projekte", StringComparison.Ordinal), "[[Projekte/Plan.md]]") is null,
+                "Auch eine vollständige Linkauswahl darf den Inline-Code-Kontext nicht umgehen.");
+            AssertEx.True(ReferenceEquals(existingNote, workspace.TryResolveLink(
+                sourceNote, inlineExample.IndexOf("[[Vorhanden]]", StringComparison.Ordinal), "[[Vorhanden]]")),
+                "Echte Links neben Inline-Code müssen weiterhin navigierbar bleiben.");
+            AssertEx.Equal(0, workspace.GetBacklinks(projectPlan).Count,
+                "Inline-Code-Beispiele dürfen keine falschen Backlinks erzeugen.");
+            AssertEx.Equal(1, workspace.GetBacklinks(existingNote).Count,
+                "Der echte Link neben dem Inline-Code muss weiterhin als Backlink zählen.");
+            AssertEx.Equal(1, workspace.GetOutline(sourceNote).Count,
+                "Inline-Code innerhalb eines Titels darf eine echte Überschrift nicht entfernen.");
         }
         finally
         {

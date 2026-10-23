@@ -131,6 +131,11 @@ Beispielinhalte:
 - `[[Ordner/Notiz]]` wird erkannt
 - `[[Notiz|Alias]]` wird erkannt
 - fehlendes Linkziel wird markiert oder als nicht auflösbar gemeldet
+- Wiki-Link-Beispiele in eingefassten Codeblöcken und einzeiligen Inline-Code-Spans werden ignoriert
+- gleich lange Backtick-Gruppen, escapte Marker und offene Marker werden unterschieden
+- Cursor- und Auswahl-Navigation verwenden dieselbe Kontextprüfung
+- echte Links neben Inline-Code behalten unter LF/CRLF und mit Unicode ihre ursprünglichen Positionen
+- mehrzeilige Inline-Code-Spans gehören noch nicht zur unterstützten V1-Teilmenge
 
 ### 6.5 Backlinks
 
