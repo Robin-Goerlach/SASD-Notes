@@ -488,16 +488,23 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
-    /// Versucht, einen Wiki-Link an der Cursorposition oder aus dem ausgewählten Text aufzulösen.
+    /// Versucht, einen gültigen Wiki-Link an der Cursorposition oder als vollständige Auswahl aufzulösen.
     /// </summary>
+    /// <param name="note">Die aktuelle Arbeitsnotiz.</param>
+    /// <param name="caretPosition">Cursorposition bzw. Beginn der Auswahl im Originaltext.</param>
+    /// <param name="selectedText">Ausgewählter Text oder <see langword="null"/> für reine Cursornavigation.</param>
+    /// <returns>Die eindeutig aufgelöste Zielnotiz oder <see langword="null"/>.</returns>
     public NoteDocument? TryResolveLink(NoteDocument note, int caretPosition, string? selectedText)
     {
         IReadOnlyList<WikiLink> links = _wikiLinkParser.Parse(note.Content);
 
         if (!string.IsNullOrWhiteSpace(selectedText) && selectedText.StartsWith("[[") && selectedText.EndsWith("]]"))
         {
-            links = _wikiLinkParser.Parse(selectedText);
-            WikiLink? selectedLink = links.FirstOrDefault();
+            // Eine Auswahl darf die Kontextprüfung des Dokumentparsers nicht umgehen:
+            // Ein isoliert geparstes Fragment würde einen Link aus einem Codeblock wieder aktivieren.
+            WikiLink? selectedLink = links.FirstOrDefault(link =>
+                link.StartIndex == caretPosition &&
+                string.Equals(link.RawText, selectedText, StringComparison.Ordinal));
             return selectedLink is null ? null : _linkResolver.Resolve(selectedLink.Target, ReplaceOrInjectSnapshot(note));
         }
 

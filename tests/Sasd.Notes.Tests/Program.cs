@@ -21,6 +21,7 @@ internal static class Program
             RunFileNameHelperTests();
             RunWikiLinkParserTests();
             RunOutlineParserTests();
+            MarkdownCodeBlockTests.Run();
             RunSearchServiceTests();
             RunDisplayFormattingTests();
             RunEditorFormattingTests();
@@ -346,7 +347,7 @@ internal static class Program
                 "Die Navigation muss den expliziten Pfad mit Endung auflösen.");
             AssertEx.True(workspace.TryResolveLink(sourceNote, linkedContent.IndexOf("[[Fehlt", StringComparison.Ordinal) + 2, null) is null,
                 "Die Navigation darf einen falschen Ordner nicht ignorieren.");
-            AssertEx.True(workspace.TryResolveLink(sourceNote, 0, "[[Plan]]") is null,
+            AssertEx.True(workspace.TryResolveLink(sourceNote, linkedContent.IndexOf("[[Plan]]", StringComparison.Ordinal), "[[Plan]]") is null,
                 "Auch ein markierter mehrdeutiger Kurzlink darf nicht beliebig navigieren.");
             IReadOnlyList<WikiLink> pathUnresolved = workspace.GetUnresolvedLinks(sourceNote);
             AssertEx.Equal(2, pathUnresolved.Count, "Fehlender Pfad und mehrdeutiger Kurzlink müssen beide unaufgelöst bleiben.");
@@ -354,6 +355,22 @@ internal static class Program
             AssertEx.Equal("Plan", pathUnresolved[1].Target, "Der mehrdeutige Kurzlink muss im Info-Bereich erhalten bleiben.");
             AssertEx.Equal(1, workspace.GetBacklinks(projectPlan).Count, "Nur der explizite Pfad darf den Projekt-Backlink liefern.");
             AssertEx.Equal(0, workspace.GetBacklinks(archivePlan).Count, "Die Archivnotiz darf keine falschen Backlinks erhalten.");
+
+            // Derselbe Parserfilter muss auch auf dem aktuellen, noch ungespeicherten Editorinhalt wirken.
+            const string codeExample = "```markdown\n# Beispiel\n[[Fehlt]] [[Projekte/Plan.md]]\n```\n# Echt\n[[Vorhanden]]";
+            workspace.UpdateWorkingContent(sourceNote, codeExample);
+            AssertEx.Equal(0, workspace.GetUnresolvedLinks(sourceNote).Count,
+                "Nicht existente Ziele in Codebeispielen dürfen keine Warnungen auslösen.");
+            AssertEx.True(workspace.TryResolveLink(sourceNote, codeExample.IndexOf("[[Projekte", StringComparison.Ordinal) + 2, null) is null,
+                "Die Cursornavigation darf einen Wiki-Link innerhalb eines Codeblocks nicht öffnen.");
+            AssertEx.Equal(0, workspace.GetBacklinks(projectPlan).Count, "Codebeispiele dürfen keine Workspace-Backlinks erzeugen.");
+            AssertEx.True(workspace.TryResolveLink(sourceNote, codeExample.IndexOf("[[Projekte", StringComparison.Ordinal), "[[Projekte/Plan.md]]") is null,
+                "Auch eine vollständige Auswahl im Codeblock darf den Dokumentkontext nicht umgehen.");
+            NoteDocument existingNote = workspace.LoadedNotes.Single(note => note.Title == "Vorhanden");
+            AssertEx.True(ReferenceEquals(existingNote, workspace.TryResolveLink(
+                sourceNote, codeExample.IndexOf("[[Vorhanden]]", StringComparison.Ordinal), "[[Vorhanden]]")),
+                "Die vollständige Auswahl eines echten Links muss weiterhin navigierbar bleiben.");
+            AssertEx.Equal(1, workspace.GetOutline(sourceNote).Count, "Der Workspace darf nur die echte Überschrift anzeigen.");
         }
         finally
         {

@@ -13,7 +13,7 @@ public sealed class MarkdownOutlineParser : IOutlineParser
     /// Regulärer Ausdruck zur Erkennung von Markdown-ATX-Überschriften.
     /// </summary>
     private static readonly Regex HeadingRegex =
-        new(@"^(#{1,6})\s+(.+?)\s*$", RegexOptions.Compiled | RegexOptions.Multiline);
+        new(@"^(#{1,6})[ \t]+([^\r\n]+?)[ \t]*\r?$", RegexOptions.Compiled | RegexOptions.Multiline);
 
     /// <inheritdoc />
     public IReadOnlyList<OutlineItem> Parse(string markdownContent)
@@ -24,15 +24,28 @@ public sealed class MarkdownOutlineParser : IOutlineParser
             return Array.Empty<OutlineItem>();
         }
 
+        IReadOnlyList<(int Start, int End)> codeBlocks = MarkdownCodeBlockScanner.FindBlocks(markdownContent);
         var matches = HeadingRegex.Matches(markdownContent);
         var result = new List<OutlineItem>(matches.Count);
 
         foreach (Match match in matches)
         {
+            // Codebeispiele erzeugen weder navigierbare Wiki-Links noch Einträge in der Dokumentgliederung.
+            if (MarkdownCodeBlockScanner.ContainsPosition(match.Index, codeBlocks))
+            {
+                continue;
+            }
+
+            string headingText = match.Groups[2].Value.Trim();
+            if (headingText.Length == 0)
+            {
+                continue;
+            }
+
             result.Add(new OutlineItem
             {
                 Level = match.Groups[1].Value.Length,
-                HeadingText = match.Groups[2].Value.Trim(),
+                HeadingText = headingText,
                 StartIndex = match.Index
             });
         }

@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Gemeinsame Erkennung eingefasster Markdown-Codeblöcke für Wiki-Links und Outline ergänzt. Beispiele erzeugen keine Backlinks oder fehlenden Linkziele mehr. Zeilengrenzen der Parser korrigiert; Unicode-, LF-/CRLF-, Marker- und Workspace-Regressionstests hinzugefügt.
+
 - Vault-Übergänge gegen überlappende Öffnungs-, Bearbeitungs- und Schreibbefehle abgesichert. Laufende Schreibaufträge verhindern den Wechsel; Lade- und Einstellungsphase bleiben geschützt. WinForms sperrt Bedienung und Schließen während des Ladens. Verzögerte Application- und Windows-Fenstertests ergänzt.
 
 - Wiki-Link-Auflösung behandelt die optionale .md-Endung auf beiden Seiten gleich. Explizite Ordnerpfade werden nicht mehr auf gleichnamige Dateien umgelenkt; mehrdeutige Kurzlinks bleiben unaufgelöst. Reihenfolge-, Unicode-, Pfad- und Backlink-Regressionstests sowie gemeinsame Spezifikation ergänzt.

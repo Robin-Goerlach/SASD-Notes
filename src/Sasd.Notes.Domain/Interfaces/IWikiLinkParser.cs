@@ -12,5 +12,9 @@ public interface IWikiLinkParser
     /// </summary>
     /// <param name="markdownContent">Zu analysierender Markdown-Text.</param>
     /// <returns>Gefundene Wiki-Links.</returns>
+    /// <remarks>
+    /// Eingefasste Codeblöcke werden ausgelassen. Positionen beziehen sich unverändert auf den Originaltext.
+    /// Die unterstützte Markdown-Teilmenge ist in spec/markdown-code-blocks.md beschrieben.
+    /// </remarks>
     IReadOnlyList<WikiLink> Parse(string markdownContent);
 }
