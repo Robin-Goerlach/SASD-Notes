@@ -18,6 +18,7 @@ public sealed class NotesWorkspaceService
     private readonly SearchService _searchService;
     private readonly BacklinkService _backlinkService;
     private AppSettings _settings = new();
+    private readonly HashSet<NoteDocument> _notesBeingSaved = new();
     private readonly List<NoteDocument> _loadedNotes = new();
     private readonly List<string> _loadedFolderPaths = new();
 
@@ -218,20 +219,48 @@ public sealed class NotesWorkspaceService
     }
 
     /// <summary>
-    /// Speichert eine Notiz, aktualisiert erkannte Links und den In-Memory-Zustand.
+    /// Speichert einen festen Textstand, ohne spätere Änderungen im Arbeitsmodell als gespeichert zu markieren.
     /// </summary>
+    /// <param name="note">Zu speichernde Arbeitsnotiz.</param>
+    /// <param name="updatedContent">Textstand zum Zeitpunkt des Speicherbefehls.</param>
+    /// <param name="cancellationToken">Token zum Abbrechen des Schreibvorgangs.</param>
+    /// <returns>Ein Task, der nach dem Speichern des übergebenen Textstands abgeschlossen wird.</returns>
+    /// <exception cref="InvalidOperationException">Kein Vault ist geöffnet oder dieselbe Notiz wird bereits gespeichert.</exception>
     public async Task SaveNoteAsync(NoteDocument note, string updatedContent, CancellationToken cancellationToken = default)
     {
-        note.Content = updatedContent;
-        note.Links = _wikiLinkParser.Parse(updatedContent);
+        ArgumentNullException.ThrowIfNull(note);
+        ArgumentNullException.ThrowIfNull(updatedContent);
 
         if (CurrentVault is null)
         {
             throw new InvalidOperationException("Es ist kein Vault geöffnet.");
         }
 
-        await _vaultRepository.SaveNoteAsync(CurrentVault.RootPath, note, cancellationToken);
-        note.IsDirty = false;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_notesBeingSaved.Add(note))
+        {
+            throw new InvalidOperationException("Diese Notiz wird bereits gespeichert. Bitte warten Sie auf den Abschluss.");
+        }
+
+        try
+        {
+            // Das Repository erhält einen eigenen Schnappschuss. Spätere Editoränderungen dürfen
+            // weder den Schreibauftrag verändern noch vom Repository nachträglich überschrieben werden.
+            string vaultPath = CurrentVault.RootPath;
+            UpdateWorkingContent(note, updatedContent);
+            NoteDocument savedSnapshot = CreateWorkingSnapshot(note);
+            await _vaultRepository.SaveNoteAsync(vaultPath, savedSnapshot, cancellationToken);
+
+            // Der Zeitstempel gehört nun zum erfolgreich gespeicherten Stand, auch wenn bereits weitergetippt wurde.
+            // Nur identischer aktueller Inhalt darf anschließend als gespeichert gelten.
+            note.LastModifiedUtc = savedSnapshot.LastModifiedUtc;
+            note.IsDirty = !string.Equals(note.Content, savedSnapshot.Content, StringComparison.Ordinal);
+        }
+        finally
+        {
+            // Fehler und Abbruch dürfen einen späteren Speicherversuch nicht dauerhaft blockieren.
+            _notesBeingSaved.Remove(note);
+        }
     }
 
     /// <summary>

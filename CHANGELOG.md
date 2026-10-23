@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Speichern verwendet einen unabhängigen Textschnappschuss; neuere Editoränderungen bleiben dirty. Doppelte laufende Speicherbefehle werden abgewiesen, Fehler und Abbruch erlauben Wiederholung. Verzögerte Application-Tests und Speicherspezifikation ergänzt.
+
 - Vault-Wechsel übernimmt Notizen, Ordnerbaum und Recent Folders erst nach erfolgreichem Laden und Speichern der vorbereiteten Einstellungen. Fehler- und Abbruchtests sichern den Erhalt des bisherigen Dirty-State ab.
 
 - Neuerzeugung von Notizen verwendet exklusives Veröffentlichen ohne Überschreiben; konkurrierende Namenskollisionen werden begrenzt wiederholt. Tests für gleichzeitige Erstellung, belegte Verzeichnisnamen und Abbruch ergänzt.

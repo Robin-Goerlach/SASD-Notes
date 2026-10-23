@@ -756,14 +756,20 @@ public partial class MainForm : Form
             return true;
         }
 
+        // Die Referenz bleibt über das await stabil, selbst wenn inzwischen eine andere Notiz geöffnet wird.
+        NoteDocument noteToSave = _currentNote;
+        string contentToSave = richTextBoxEditor.Text;
         try
         {
-            await _workspaceService.SaveNoteAsync(_currentNote, richTextBoxEditor.Text);
+            await _workspaceService.SaveNoteAsync(noteToSave, contentToSave);
             UpdateWindowTitle();
             UpdateStatusMetrics();
             RefreshContextPanels();
-            SetStatus($"Notiz gespeichert: {_currentNote.RelativePath}");
-            return true;
+            SetStatus(noteToSave.IsDirty
+                ? $"Textstand gespeichert; neuere Änderungen sind ungespeichert: {noteToSave.RelativePath}"
+                : $"Notiz gespeichert: {noteToSave.RelativePath}");
+            // Ein auf Speichern wartender Schließ- oder Wechselbefehl darf neuere Änderungen nicht verwerfen.
+            return !noteToSave.IsDirty;
         }
         catch (Exception ex)
         {
