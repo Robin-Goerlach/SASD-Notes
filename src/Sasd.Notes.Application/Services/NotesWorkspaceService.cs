@@ -8,6 +8,10 @@ namespace Sasd.Notes.Application.Services;
 /// <summary>
 /// Orchestriert die wichtigsten Anwendungsfälle rund um Vault, Notizen und Benutzereinstellungen.
 /// </summary>
+/// <remarks>
+/// Auf einem gemeinsamen Ausführungskontext verwenden, in WinForms auf dem UI-Kontext.
+/// Übergangssperren koordinieren asynchrone Befehle, ersetzen jedoch keine Synchronisierung mehrerer Threads.
+/// </remarks>
 public sealed class NotesWorkspaceService
 {
     private readonly IVaultRepository _vaultRepository;
@@ -18,6 +22,8 @@ public sealed class NotesWorkspaceService
     private readonly SearchService _searchService;
     private readonly BacklinkService _backlinkService;
     private AppSettings _settings = new();
+    private bool _isOpeningVault;
+    private int _activeWriteOperations;
     private readonly HashSet<NoteDocument> _notesBeingSaved = new();
     private readonly Dictionary<NoteDocument, string> _savedContents = new();
     private readonly List<NoteDocument> _loadedNotes = new();
@@ -98,7 +104,33 @@ public sealed class NotesWorkspaceService
     /// <param name="cancellationToken">Token zum Abbrechen der Vorbereitung.</param>
     /// <returns>Informationen über den erfolgreich geöffneten Vault.</returns>
     /// <remarks>Bei einem Fehler oder beobachteten Abbruch bleibt der bisherige Workspace im Arbeitsspeicher erhalten.</remarks>
+    /// <exception cref="InvalidOperationException">Ein anderer Vault-Wechsel oder Schreibvorgang läuft noch.</exception>
     public async Task<VaultInfo> OpenVaultAsync(string vaultPath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureVaultIsNotOpening();
+        if (_activeWriteOperations > 0)
+        {
+            throw new InvalidOperationException("Bitte warten Sie auf den Abschluss laufender Schreibvorgänge.");
+        }
+
+        // Der gesamte Wechsel einschließlich Einstellungsspeicherung ist exklusiv gegenüber weiteren Änderungen.
+        _isOpeningVault = true;
+        try
+        {
+            return await OpenVaultCoreAsync(vaultPath, cancellationToken);
+        }
+        finally
+        {
+            // Auch Lesefehler, Einstellungsfehler und Abbruch müssen die Bedienung wieder freigeben.
+            _isOpeningVault = false;
+        }
+    }
+
+    /// <summary>
+    /// Bereitet den neuen Vault vor und übernimmt ihn innerhalb der bereits gesperrten Übergangsphase.
+    /// </summary>
+    private async Task<VaultInfo> OpenVaultCoreAsync(string vaultPath, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(vaultPath))
         {
@@ -227,7 +259,7 @@ public sealed class NotesWorkspaceService
     /// <param name="updatedContent">Textstand zum Zeitpunkt des Speicherbefehls.</param>
     /// <param name="cancellationToken">Token zum Abbrechen des Schreibvorgangs.</param>
     /// <returns>Ein Task, der nach dem Speichern des übergebenen Textstands abgeschlossen wird.</returns>
-    /// <exception cref="InvalidOperationException">Kein Vault ist geöffnet oder dieselbe Notiz wird bereits gespeichert.</exception>
+    /// <exception cref="InvalidOperationException">Kein Vault ist geöffnet, ein Vault-Wechsel läuft oder dieselbe Notiz wird bereits gespeichert.</exception>
     public async Task SaveNoteAsync(NoteDocument note, string updatedContent, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(note);
@@ -239,11 +271,13 @@ public sealed class NotesWorkspaceService
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        EnsureVaultIsNotOpening();
         if (!_notesBeingSaved.Add(note))
         {
             throw new InvalidOperationException("Diese Notiz wird bereits gespeichert. Bitte warten Sie auf den Abschluss.");
         }
 
+        _activeWriteOperations++;
         try
         {
             // Das Repository erhält einen eigenen Schnappschuss. Spätere Editoränderungen dürfen
@@ -272,12 +306,18 @@ public sealed class NotesWorkspaceService
         {
             // Fehler und Abbruch dürfen einen späteren Speicherversuch nicht dauerhaft blockieren.
             _notesBeingSaved.Remove(note);
+            _activeWriteOperations--;
         }
     }
 
     /// <summary>
     /// Erstellt eine neue Notiz im aktuellen Vault.
     /// </summary>
+    /// <param name="title">Gewünschter Titel der neuen Notiz.</param>
+    /// <param name="relativeFolderPath">Relativer Zielordner oder <see langword="null"/> für das Vault-Wurzelverzeichnis.</param>
+    /// <param name="cancellationToken">Token zum Abbrechen der Erstellung.</param>
+    /// <returns>Die im aktuellen Workspace übernommene neue Notiz.</returns>
+    /// <exception cref="InvalidOperationException">Kein Vault ist geöffnet oder ein Vault-Wechsel läuft.</exception>
     public async Task<NoteDocument> CreateNoteAsync(string title, string? relativeFolderPath, CancellationToken cancellationToken = default)
     {
         if (CurrentVault is null)
@@ -285,13 +325,21 @@ public sealed class NotesWorkspaceService
             throw new InvalidOperationException("Es ist kein Vault geöffnet.");
         }
 
-        NoteDocument createdNote = await _vaultRepository.CreateNoteAsync(CurrentVault.RootPath, relativeFolderPath, title, cancellationToken);
-        createdNote.Links = _wikiLinkParser.Parse(createdNote.Content);
+        BeginWriteOperation(cancellationToken);
+        try
+        {
+            NoteDocument createdNote = await _vaultRepository.CreateNoteAsync(CurrentVault.RootPath, relativeFolderPath, title, cancellationToken);
+            createdNote.Links = _wikiLinkParser.Parse(createdNote.Content);
 
-        _loadedNotes.Add(createdNote);
-        SortNotes();
+            _loadedNotes.Add(createdNote);
+            SortNotes();
 
-        return createdNote;
+            return createdNote;
+        }
+        finally
+        {
+            _activeWriteOperations--;
+        }
     }
 
     /// <summary>
@@ -301,6 +349,7 @@ public sealed class NotesWorkspaceService
     /// <param name="relativeParentPath">Relativer übergeordneter Ordner oder <see langword="null"/>.</param>
     /// <param name="cancellationToken">Abbruchtoken.</param>
     /// <returns>Der relative Pfad des neu erstellten Ordners.</returns>
+    /// <exception cref="InvalidOperationException">Kein Vault ist geöffnet oder ein Vault-Wechsel läuft.</exception>
     public async Task<string> CreateFolderAsync(
         string folderName,
         string? relativeParentPath,
@@ -311,20 +360,28 @@ public sealed class NotesWorkspaceService
             throw new InvalidOperationException("Es ist kein Vault geöffnet.");
         }
 
-        // Die Pfad- und Namensprüfung bleibt im Infrastrukturadapter, damit alle Aufrufer dieselben Regeln verwenden.
-        string createdFolderPath = await _vaultRepository.CreateFolderAsync(
-            CurrentVault.RootPath,
-            relativeParentPath,
-            folderName,
-            cancellationToken);
-
-        // Der neue Ordner wird sofort in den Arbeitsspeicher übernommen, ohne den gesamten Vault neu zu laden.
-        if (!_loadedFolderPaths.Contains(createdFolderPath, StringComparer.OrdinalIgnoreCase))
+        BeginWriteOperation(cancellationToken);
+        try
         {
-            _loadedFolderPaths.Add(createdFolderPath);
-        }
+            // Die Pfad- und Namensprüfung bleibt im Infrastrukturadapter, damit alle Aufrufer dieselben Regeln verwenden.
+            string createdFolderPath = await _vaultRepository.CreateFolderAsync(
+                CurrentVault.RootPath,
+                relativeParentPath,
+                folderName,
+                cancellationToken);
 
-        return createdFolderPath;
+            // Der neue Ordner wird sofort in den Arbeitsspeicher übernommen, ohne den gesamten Vault neu zu laden.
+            if (!_loadedFolderPaths.Contains(createdFolderPath, StringComparer.OrdinalIgnoreCase))
+            {
+                _loadedFolderPaths.Add(createdFolderPath);
+            }
+
+            return createdFolderPath;
+        }
+        finally
+        {
+            _activeWriteOperations--;
+        }
     }
 
     /// <summary>
@@ -391,6 +448,7 @@ public sealed class NotesWorkspaceService
             throw new InvalidOperationException("Es ist kein Vault geöffnet.");
         }
 
+        EnsureVaultIsNotOpening();
         if (_notesBeingSaved.Contains(note) || !_loadedNotes.Contains(note))
         {
             throw new InvalidOperationException("Die Notiz wird gespeichert oder gehört nicht mehr zum aktiven Workspace.");
@@ -406,7 +464,7 @@ public sealed class NotesWorkspaceService
 
         cancellationToken.ThrowIfCancellationRequested();
         int noteIndex = _loadedNotes.IndexOf(note);
-        if (!ReferenceEquals(CurrentVault, vaultAtStart) || noteIndex < 0 ||
+        if (_isOpeningVault || !ReferenceEquals(CurrentVault, vaultAtStart) || noteIndex < 0 ||
             _notesBeingSaved.Contains(note) ||
             !string.Equals(note.Content, contentAtStart, StringComparison.Ordinal) ||
             note.IsDirty != wasDirty || note.LastModifiedUtc != timestampAtStart)
@@ -462,10 +520,13 @@ public sealed class NotesWorkspaceService
     /// </summary>
     /// <param name="note">Die bearbeitete Arbeitsnotiz.</param>
     /// <param name="workingContent">Der aktuelle Text aus dem Editor.</param>
+    /// <exception cref="InvalidOperationException">Ein Vault-Wechsel läuft.</exception>
     public void UpdateWorkingContent(NoteDocument note, string workingContent)
     {
         ArgumentNullException.ThrowIfNull(note);
         ArgumentNullException.ThrowIfNull(workingContent);
+
+        EnsureVaultIsNotOpening();
 
         // Nur die erste Änderung merkt sich den Ausgangstext; weitere Tastendrücke dürfen ihn nicht ersetzen.
         _savedContents.TryAdd(note, note.Content);
@@ -480,7 +541,7 @@ public sealed class NotesWorkspaceService
     /// <param name="note">Arbeitsnotiz, deren lokale Änderungen ausdrücklich verworfen werden sollen.</param>
     /// <returns>
     /// <see langword="true"/> bei erfolgreichem Zurücksetzen oder unveränderter Notiz;
-    /// <see langword="false"/> bei laufendem Speichern oder fehlendem bekannten Ausgangstext.
+    /// <see langword="false"/> bei laufendem Vault-Wechsel, laufendem Speichern oder fehlendem bekannten Ausgangstext.
     /// </returns>
     /// <remarks>
     /// Liest und schreibt keine Datei. Externe Änderungen werden erst durch explizites Neuladen übernommen.
@@ -490,7 +551,7 @@ public sealed class NotesWorkspaceService
         ArgumentNullException.ThrowIfNull(note);
 
         // Ein offener Schreibauftrag könnte sonst nach dem Verwerfen einen anderen Dateistand veröffentlichen.
-        if (_notesBeingSaved.Contains(note))
+        if (_isOpeningVault || _notesBeingSaved.Contains(note))
         {
             return false;
         }
@@ -531,6 +592,27 @@ public sealed class NotesWorkspaceService
             TreeItemType.Note => Path.GetDirectoryName(item.RelativePath)?.Replace('\\', '/'),
             _ => null
         };
+    }
+
+    /// <summary>
+    /// Verhindert Änderungen am bisherigen Workspace, solange ein neuer Vault vorbereitet wird.
+    /// </summary>
+    private void EnsureVaultIsNotOpening()
+    {
+        if (_isOpeningVault)
+        {
+            throw new InvalidOperationException("Ein Vault wird gerade geöffnet. Bitte warten Sie auf den Abschluss.");
+        }
+    }
+
+    /// <summary>
+    /// Meldet einen Schreibvorgang an, damit kein Vault-Wechsel dessen Abschluss überholen kann.
+    /// </summary>
+    private void BeginWriteOperation(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureVaultIsNotOpening();
+        _activeWriteOperations++;
     }
 
     /// <summary>

@@ -19,6 +19,7 @@ public partial class MainForm : Form
     private string? _externalChangeWarningPath;
     private bool _closeConfirmationInProgress;
     private bool _closeApproved;
+    private bool _vaultOpenInProgress;
 
     /// <summary>
     /// Initialisiert eine neue Instanz der <see cref="MainForm"/>-Klasse.
@@ -473,6 +474,14 @@ public partial class MainForm : Form
     /// </summary>
     private async void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
+        if (_vaultOpenInProgress)
+        {
+            // Ein noch laufender Ladeabschluss darf nicht auf bereits freigegebene Controls zugreifen.
+            e.Cancel = true;
+            SetStatus("Bitte warten Sie, bis der Vault vollständig geöffnet ist.");
+            return;
+        }
+
         if (_closeApproved || e.Cancel)
         {
             return;
@@ -535,13 +544,25 @@ public partial class MainForm : Form
     /// </summary>
     private async Task OpenVaultAsync(string vaultPath)
     {
-        if (!await ConfirmSaveChangesIfRequiredAsync())
+        if (_vaultOpenInProgress || _closeConfirmationInProgress || _closeApproved)
         {
             return;
         }
 
+        // Die Sperre beginnt vor einer eventuell asynchronen Speicherbestätigung, damit kein zweiter Wechsel startet.
+        _vaultOpenInProgress = true;
+        bool wasEnabled = Enabled;
+        bool previousWaitCursor = UseWaitCursor;
         try
         {
+            if (!await ConfirmSaveChangesIfRequiredAsync())
+            {
+                return;
+            }
+
+            Enabled = false;
+            UseWaitCursor = true;
+            SetStatus("Vault wird geöffnet...");
             VaultInfo vaultInfo = await _workspaceService.OpenVaultAsync(vaultPath);
             RebuildTree();
             RefreshRecentFoldersMenu();
@@ -553,6 +574,15 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             ShowError("Der Vault konnte nicht geöffnet werden.", ex);
+        }
+        finally
+        {
+            _vaultOpenInProgress = false;
+            if (!IsDisposed && !Disposing)
+            {
+                Enabled = wasEnabled;
+                UseWaitCursor = previousWaitCursor;
+            }
         }
     }
 

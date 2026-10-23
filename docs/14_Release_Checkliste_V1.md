@@ -12,6 +12,7 @@ Der Windows-Workflow muss für den zu veröffentlichenden Commit erfolgreich sei
 - dotnet test läuft erfolgreich.
 - Der paketfreie Test-Harness läuft erfolgreich.
 - Der Windows-Test-Harness prüft verzögerte Schließbestätigung, Abbruch und erneuten Schließversuch.
+- Der Windows-Test-Harness prüft Bedienungssperre und abgefangene Schließversuche während eines verzögerten Vault-Ladevorgangs.
 - Das WinForms-Projekt lässt sich als Release veröffentlichen.
 - Die veröffentlichte WinForms-Ausgabe wird als ZIP-CI-Artefakt bereitgestellt.
 - Es werden keine Merge-Konfliktmarker in Projekt-, Test- oder Dokumentationsdateien gefunden.
@@ -35,6 +36,7 @@ dotnet publish .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj --co
 - Markdown-Dateien werden rekursiv im TreeView angezeigt.
 - Eine Notiz lässt sich öffnen, ändern und speichern.
 - Der Dirty-State verhindert unbeabsichtigtes Verwerfen.
+- Während eines Vault-Wechsels sind Editor und weitere Befehle gesperrt; nach Ladefehlern und nach erfolgreichem Abschluss ist die Bedienung wieder möglich.
 - Eine neue Notiz lässt sich im gewählten Ordner anlegen.
 - Ein neuer Ordner lässt sich anlegen und bleibt auch leer sichtbar.
 - Wiki-Links, Backlinks, Suche und Outline reagieren auf den aktuellen Inhalt.
