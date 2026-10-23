@@ -12,6 +12,13 @@ public interface ILinkResolver
     /// </summary>
     /// <param name="target">Linkziel aus dem Wiki-Link.</param>
     /// <param name="allNotes">Alle bekannten Notizen im aktuellen Vault.</param>
-    /// <returns>Die aufgelöste Notiz oder <see langword="null"/>.</returns>
+    /// <returns>
+    /// Die eindeutig aufgelöste Notiz oder <see langword="null"/> bei fehlendem, leerem oder mehrdeutigem Ziel.
+    /// </returns>
+    /// <remarks>
+    /// Ein exakter relativer Vault-Pfad hat Vorrang. Ordnerangaben sind verbindlich;
+    /// nur Ziele ohne Ordner dürfen auf einen eindeutigen Dateinamen zurückfallen.
+    /// Die Endung .md ist optional, Groß-/Kleinschreibung wird nicht unterschieden.
+    /// </remarks>
     NoteDocument? Resolve(string target, IReadOnlyList<NoteDocument> allNotes);
 }

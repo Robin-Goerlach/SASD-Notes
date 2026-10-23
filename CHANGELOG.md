@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Wiki-Link-Auflösung behandelt die optionale .md-Endung auf beiden Seiten gleich. Explizite Ordnerpfade werden nicht mehr auf gleichnamige Dateien umgelenkt; mehrdeutige Kurzlinks bleiben unaufgelöst. Reihenfolge-, Unicode-, Pfad- und Backlink-Regressionstests sowie gemeinsame Spezifikation ergänzt.
+
 - Gezielter Repository-Einzelzugriff für das Neuladen ergänzt. Gesperrte Nachbardateien beeinflussen den Vorgang nicht mehr; verspätete Ergebnisse werden nach Bearbeitung, Vault-Wechsel oder Abbruch verworfen. Pfad-, Datei- und Application-Regressionstests ergänzt.
 
 - „Nicht speichern“ verwirft lokale Änderungen nun auch im geladenen Notizmodell. Der Workspace erhält die letzte Lade-/Speicherbasis, stellt Links wieder her und verhindert Verwerfen während laufender Speicherung. Regressionstests und Verhaltensspezifikation ergänzt.

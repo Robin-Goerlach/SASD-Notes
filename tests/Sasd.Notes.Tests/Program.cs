@@ -26,6 +26,7 @@ internal static class Program
             RunEditorFormattingTests();
             RunFormatterLineBoundaryTests();
             RunLinkResolverTests();
+            LinkResolutionTests.Run();
             RunBacklinkServiceTests();
             await RunUnresolvedLinkTests();
             await RunFolderTreeTests();
@@ -309,6 +310,10 @@ internal static class Program
                 Path.Combine(temporaryVault, "Quelle.md"),
                 "[[Vorhanden]] und [[Fehlt]].");
             await File.WriteAllTextAsync(Path.Combine(temporaryVault, "Vorhanden.md"), "# Vorhanden");
+            Directory.CreateDirectory(Path.Combine(temporaryVault, "Projekte"));
+            Directory.CreateDirectory(Path.Combine(temporaryVault, "Archiv"));
+            await File.WriteAllTextAsync(Path.Combine(temporaryVault, "Projekte", "Plan.md"), "# Projektplan");
+            await File.WriteAllTextAsync(Path.Combine(temporaryVault, "Archiv", "Plan.md"), "# Archivplan");
 
             var parser = new WikiLinkParser();
             var resolver = new LinkResolver();
@@ -330,6 +335,24 @@ internal static class Program
 
             AssertEx.Equal(1, unresolved.Count, "Nicht vorhandene Wiki-Links sollten erkannt werden.");
             AssertEx.Equal("Fehlt", unresolved[0].Target, "Das nicht auflösbare Ziel sollte erhalten bleiben.");
+
+            // Navigation, Info-Bereich und Backlinks müssen beim selben aktuellen Editorinhalt übereinstimmen.
+            const string linkedContent = "[[Projekte/Plan.md|Projektplan]] [[Fehlt/Plan]] [[Plan]]";
+            workspace.UpdateWorkingContent(sourceNote, linkedContent);
+            NoteDocument projectPlan = workspace.LoadedNotes.Single(note => note.RelativePath.Replace('\\', '/') == "Projekte/Plan.md");
+            NoteDocument archivePlan = workspace.LoadedNotes.Single(note => note.RelativePath.Replace('\\', '/') == "Archiv/Plan.md");
+            AssertEx.True(ReferenceEquals(projectPlan, workspace.TryResolveLink(sourceNote, 2, null)),
+                "Die Navigation muss den expliziten Pfad mit Endung auflösen.");
+            AssertEx.True(workspace.TryResolveLink(sourceNote, linkedContent.IndexOf("[[Fehlt", StringComparison.Ordinal) + 2, null) is null,
+                "Die Navigation darf einen falschen Ordner nicht ignorieren.");
+            AssertEx.True(workspace.TryResolveLink(sourceNote, 0, "[[Plan]]") is null,
+                "Auch ein markierter mehrdeutiger Kurzlink darf nicht beliebig navigieren.");
+            IReadOnlyList<WikiLink> pathUnresolved = workspace.GetUnresolvedLinks(sourceNote);
+            AssertEx.Equal(2, pathUnresolved.Count, "Fehlender Pfad und mehrdeutiger Kurzlink müssen beide unaufgelöst bleiben.");
+            AssertEx.Equal("Fehlt/Plan", pathUnresolved[0].Target, "Der fehlende Pfad muss im Info-Bereich erhalten bleiben.");
+            AssertEx.Equal("Plan", pathUnresolved[1].Target, "Der mehrdeutige Kurzlink muss im Info-Bereich erhalten bleiben.");
+            AssertEx.Equal(1, workspace.GetBacklinks(projectPlan).Count, "Nur der explizite Pfad darf den Projekt-Backlink liefern.");
+            AssertEx.Equal(0, workspace.GetBacklinks(archivePlan).Count, "Die Archivnotiz darf keine falschen Backlinks erhalten.");
         }
         finally
         {
