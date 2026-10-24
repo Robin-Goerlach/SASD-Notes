@@ -42,6 +42,7 @@ internal static class Program
             await WorkspaceSwitchTests.RunAsync();
             await WorkspaceTransitionTests.RunAsync();
             await StartupTargetTests.RunAsync();
+            await SettingsRepositoryTests.RunAsync();
             await WorkspaceSaveTests.RunAsync();
 
             Console.WriteLine("Alle SASD Notes Kernprüfungen wurden erfolgreich ausgeführt.");

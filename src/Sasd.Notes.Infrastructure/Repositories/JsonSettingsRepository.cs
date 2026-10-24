@@ -24,19 +24,31 @@ public sealed class JsonSettingsRepository : ISettingsRepository
     /// Initialisiert eine neue Instanz der <see cref="JsonSettingsRepository"/>-Klasse.
     /// </summary>
     public JsonSettingsRepository()
-    {
-        string basePath = Path.Combine(
+        : this(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SASD",
-            "SASD Notes");
+            "SASD", "SASD Notes", "settings.json"))
+    {
+    }
 
-        Directory.CreateDirectory(basePath);
-        _settingsFilePath = Path.Combine(basePath, "settings.json");
+    /// <summary>
+    /// Initialisiert die Persistenz mit einem expliziten Pfad, beispielsweise für isolierte Tests.
+    /// </summary>
+    /// <param name="settingsFilePath">Absoluter Dateipfad der JSON-Einstellungen.</param>
+    /// <exception cref="ArgumentException">Der Pfad ist leer oder nicht absolut.</exception>
+    public JsonSettingsRepository(string settingsFilePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(settingsFilePath);
+        if (!Path.IsPathFullyQualified(settingsFilePath))
+        {
+            throw new ArgumentException("Der Einstellungspfad muss absolut sein.", nameof(settingsFilePath));
+        }
+        _settingsFilePath = Path.GetFullPath(settingsFilePath);
     }
 
     /// <inheritdoc />
     public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!File.Exists(_settingsFilePath))
         {
             return new AppSettings();
@@ -54,7 +66,11 @@ public sealed class JsonSettingsRepository : ISettingsRepository
                 return new AppSettings();
             }
 
-            settings.RecentFolders ??= new List<RecentFolderEntry>();
+            // JSON kann trotz nicht-nullbarer C#-Properties explizite null-Werte enthalten.
+            // Nicht vorhandene Vaults bleiben in der Historie; nur strukturell unbrauchbare Einträge entfallen.
+            settings.RecentFolders = (settings.RecentFolders ?? new List<RecentFolderEntry>())
+                .Where(entry => entry is not null && !string.IsNullOrWhiteSpace(entry.Path))
+                .ToList();
             return settings;
         }
         catch (JsonException)
@@ -67,6 +83,11 @@ public sealed class JsonSettingsRepository : ISettingsRepository
     /// <inheritdoc />
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(settings);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Lesen und Konstruktion erzeugen keine Verzeichnisse; erst ein echter Speicherauftrag benötigt sie.
+        Directory.CreateDirectory(Path.GetDirectoryName(_settingsFilePath)!);
         string temporaryPath = _settingsFilePath + ".tmp-" + Guid.NewGuid().ToString("N");
 
         try
@@ -85,6 +106,7 @@ public sealed class JsonSettingsRepository : ISettingsRepository
             }
 
             // Erst danach wird die bisherige Einstellungsdatei ersetzt.
+            cancellationToken.ThrowIfCancellationRequested();
             File.Move(temporaryPath, _settingsFilePath, overwrite: true);
         }
         finally

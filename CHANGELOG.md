@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- JSON-Einstellungen gegen null-Einträge und leere Recent-Folder-Pfade abgesichert. Einstellungszugriff isoliert testbar gemacht; Lesen erzeugt keine Verzeichnisse. Abbruch wird vor Seiteneffekten und Dateiersetzung geprüft. Datei-, Unicode- und Abbruchtests ergänzt.
+
 - Outline erkennt ATX-Überschriften mit bis zu drei führenden Leerzeichen und entfernt optionale Abschlussrauten aus dem Anzeigetitel. Originalpositionen bleiben erhalten; Unicode-, LF-/CRLF- und Codeblock-Regressionstests sowie Spezifikation ergänzt.
 
 - Periodische Dateiprüfung auf die geöffnete Notiz begrenzt und gegen E/A- sowie Zugriffsfehler abgesichert. Vorübergehend nicht prüfbare Dateien werden ausdrücklich gemeldet und erneut geprüft; Entwurf und Dirty-State bleiben erhalten. Workspace- und echte Windows-Timertests ergänzt.
