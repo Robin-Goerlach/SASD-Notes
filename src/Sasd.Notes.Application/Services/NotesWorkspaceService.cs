@@ -539,7 +539,13 @@ public sealed class NotesWorkspaceService
         _savedContents.TryAdd(note, note.Content);
         note.Content = workingContent;
         note.Links = _wikiLinkParser.Parse(workingContent);
-        note.IsDirty = true;
+        // Entscheidend ist der tatsächliche Textunterschied, nicht die Anzahl der Editorereignisse.
+        // Auch manuelles Zurücksetzen oder Rückgängig kann den gespeicherten Stand wiederherstellen.
+        note.IsDirty = !string.Equals(workingContent, _savedContents[note], StringComparison.Ordinal);
+        if (!note.IsDirty)
+        {
+            _savedContents.Remove(note);
+        }
     }
 
     /// <summary>

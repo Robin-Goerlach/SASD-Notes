@@ -15,6 +15,7 @@ internal static class WorkspaceSaveTests
     /// </summary>
     public static async Task RunAsync()
     {
+        await RunDirtyStateTestsAsync();
         var repository = new DelayedVaultRepository();
         var parser = new WikiLinkParser();
         var resolver = new LinkResolver();
@@ -135,6 +136,70 @@ internal static class WorkspaceSaveTests
         };
         Require(!workspace.TryDiscardWorkingChanges(unknownDirtyNote) && unknownDirtyNote.IsDirty,
             "Ohne bekannte Basis dürfen Änderungen nicht als verworfen gelten.");
+    }
+
+    /// <summary>
+    /// Prüft den Textvergleich gegen die gültige Lade-/Speicherbasis, auch über asynchrone Abschlüsse hinweg.
+    /// </summary>
+    private static async Task RunDirtyStateTestsAsync()
+    {
+        var repository = new DelayedVaultRepository();
+        var parser = new WikiLinkParser();
+        var resolver = new LinkResolver();
+        var workspace = new NotesWorkspaceService(
+            repository, new MemorySettingsRepository(), parser, new MarkdownOutlineParser(),
+            resolver, new SearchService(), new BacklinkService(resolver));
+        await workspace.OpenVaultAsync(Path.GetFullPath(Path.Combine(Path.GetTempPath(), "sasd-dirty-tests")));
+        NoteDocument note = workspace.LoadedNotes.Single();
+        DateTime loadedTimestamp = note.LastModifiedUtc;
+
+        workspace.UpdateWorkingContent(note, "# Original");
+        Require(!note.IsDirty, "Ein unveränderter Text darf keine Speicherabfrage verursachen.");
+        workspace.UpdateWorkingContent(note, "[[Änderung]] 😀\n");
+        workspace.UpdateWorkingContent(note, "[[Änderung]] 😀\n");
+        Require(note.IsDirty, "Identische wiederholte Editorereignisse dürfen einen geänderten Text nicht clean machen.");
+        workspace.UpdateWorkingContent(note, "# Original");
+        Require(!note.IsDirty && note.Links.Count == 0, "Die Rückkehr zum geladenen Text muss auch Links und Dirty-State zurücksetzen.");
+        Require(repository.SaveCount == 0 && note.LastModifiedUtc == loadedTimestamp,
+            "Der reine Statusvergleich darf weder schreiben noch den Dateizeitstempel ändern.");
+
+        const string savedText = "[[Gespeichert]] 😀\r\n";
+        Task save = workspace.SaveNoteAsync(note, savedText);
+        repository.CompleteSave();
+        await save;
+        workspace.UpdateWorkingContent(note, savedText.Replace("\r\n", "\n"));
+        Require(note.IsDirty, "Ein abweichender Zeilenumbruch muss als tatsächlicher Textunterschied gelten.");
+        workspace.UpdateWorkingContent(note, savedText);
+        Require(!note.IsDirty && note.Links.Single().Target == "Gespeichert",
+            "Nach dem Speichern muss der letzte erfolgreiche Text die Vergleichsbasis sein.");
+
+        // Während des Schreibens ist noch die alte Dateibasis gültig; danach gilt der veröffentlichte Schnappschuss.
+        const string nextSavedText = "Neuer gespeicherter Stand";
+        Task delayedSave = workspace.SaveNoteAsync(note, nextSavedText);
+        workspace.UpdateWorkingContent(note, savedText);
+        Require(!note.IsDirty, "Vor dem Schreibabschluss muss die alte gespeicherte Basis gelten.");
+        Require(!workspace.TryDiscardWorkingChanges(note), "Auch bei identischem Text darf ein offener Schreibauftrag nicht verworfen werden.");
+        repository.CompleteSave();
+        await delayedSave;
+        Require(note.IsDirty && note.Content == savedText,
+            "Nach dem Schreibabschluss muss derselbe Editorinhalt gegen den neu gespeicherten Stand geprüft werden.");
+        workspace.UpdateWorkingContent(note, nextSavedText);
+        Require(!note.IsDirty, "Die Rückkehr zum neuen gespeicherten Stand muss den Dirty-State wieder aufheben.");
+
+        Task failedSave = workspace.SaveNoteAsync(note, "Fehlgeschlagener Kandidat");
+        workspace.UpdateWorkingContent(note, nextSavedText);
+        repository.FailSave(new IOException("Simulierter Schreibfehler."));
+        await ExpectFailureAsync<IOException>(() => failedSave);
+        Require(!note.IsDirty && note.Content == nextSavedText,
+            "Ein Schreibfehler darf einen inzwischen exakt zurückgesetzten Text nicht nachträglich dirty machen.");
+
+        Task emptySave = workspace.SaveNoteAsync(note, string.Empty);
+        repository.CompleteSave();
+        await emptySave;
+        workspace.UpdateWorkingContent(note, "x");
+        Require(note.IsDirty, "Eine Änderung am leeren gespeicherten Dokument muss erkannt werden.");
+        workspace.UpdateWorkingContent(note, string.Empty);
+        Require(!note.IsDirty, "Auch die Rückkehr zu einem leeren gespeicherten Dokument muss erkannt werden.");
     }
 
     private static async Task ExpectFailureAsync<TException>(Func<Task> action) where TException : Exception

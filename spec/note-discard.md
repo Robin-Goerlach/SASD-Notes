@@ -22,3 +22,17 @@ geladenen Notiz dürfen die verworfenen Änderungen nicht zurückkehren.
 Verwerfen liest oder schreibt keine Datei. Es stellt den zuletzt bekannten
 geladenen bzw. gespeicherten Text wieder her. Externe Änderungen erfordern
 weiterhin den ausdrücklichen Befehl zum Neuladen.
+
+## Änderungsstatus beim Zurücksetzen
+
+Der Dirty-State wird beim Übernehmen des Editorinhalts durch einen exakten
+ordinalen Textvergleich mit der zuletzt bekannten Lade-/Speicherbasis bestimmt.
+Ein unveränderter Text sowie die Rückkehr zum Ausgangstext sind nicht dirty.
+Abweichende Zeilenumbrüche zählen weiterhin als Unterschied; es findet keine
+stille Normalisierung statt. Links werden auch bei der Rückkehr neu geparst.
+
+Bei einem laufenden Speicherauftrag bleibt bis zum erfolgreichen Abschluss
+die bisherige Basis maßgeblich. Danach wird der aktuelle Editorinhalt gegen
+den tatsächlich gespeicherten Schnappschuss geprüft. Daher kann ein vorübergehend
+sauberer Editor nach dem Abschluss wieder dirty sein. Fehler ersetzen die
+gültige Basis nicht. Diese Berechnung verändert weder Dateien noch Zeitstempel.
