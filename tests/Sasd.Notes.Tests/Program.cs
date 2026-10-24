@@ -237,6 +237,19 @@ internal static class Program
             AssertEx.Equal("1. Erste" + newline + "2. Zweite" + newline, numbered.UpdatedText,
                 "Nummerierte Listen müssen den abschließenden Zeilenumbruch exakt erhalten.");
         }
+
+        const string mixedLineEndings = "Erste\r\nZweite\nDritte\rVierte";
+        TextSelectionTransformResult mixedBullets = formatter.Apply(
+            mixedLineEndings, 0, mixedLineEndings.Length, MarkdownFormatKind.BulletList);
+        AssertEx.Equal("- Erste\r\n- Zweite\n- Dritte\r- Vierte", mixedBullets.UpdatedText,
+            "Aufzählungen dürfen gemischte CRLF-, LF- und CR-Zeilentrenner nicht vereinheitlichen.");
+
+        TextSelectionTransformResult mixedNumbering = formatter.Apply(
+            mixedLineEndings, 0, mixedLineEndings.Length, MarkdownFormatKind.NumberedList);
+        AssertEx.Equal("1. Erste\r\n2. Zweite\n3. Dritte\r4. Vierte", mixedNumbering.UpdatedText,
+            "Nummerierte Listen müssen jeden ursprünglichen Zeilentrenner unverändert erhalten.");
+        AssertEx.Equal(mixedNumbering.UpdatedText.Length, mixedNumbering.SelectionLength,
+            "Die Ergebnisauswahl muss den vollständig formatierten Block umfassen.");
     }
 
     private static void RunDisplayFormattingTests()

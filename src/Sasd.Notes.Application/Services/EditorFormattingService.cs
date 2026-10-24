@@ -1,3 +1,4 @@
+using System.Text;
 using Sasd.Notes.Domain.Models;
 
 namespace Sasd.Notes.Application.Services;
@@ -93,22 +94,11 @@ public sealed class EditorFormattingService
     {
         (int lineStart, int lineEnd) = ExpandToLineRange(text, selectionStart, selectionLength);
         string targetBlock = text.Substring(lineStart, lineEnd - lineStart);
-        string lineEnding = DetectLineEnding(text);
 
-        // Für die Bearbeitung werden alle Zeilenenden vereinheitlicht und anschließend im ursprünglichen Stil geschrieben.
-        string[] lines = NormalizeLineEndings(targetBlock).Split('\n', StringSplitOptions.None);
-        for (int index = 0; index < lines.Length; index++)
-        {
-            // Leere Zeilen bleiben unangetastet, damit keine unnötigen Marker entstehen.
-            if (lines[index].Length == 0)
-            {
-                continue;
-            }
-
-            lines[index] = prefix + lines[index];
-        }
-
-        string replacedBlock = string.Join(lineEnding, lines);
+        // Jeder vorhandene Zeilentrenner bleibt an seiner ursprünglichen Position und in seiner ursprünglichen Form erhalten.
+        string replacedBlock = TransformLinesPreservingEndings(
+            targetBlock,
+            line => line.Length == 0 ? line : prefix + line);
         string updatedText = text[..lineStart] + replacedBlock + text[lineEnd..];
 
         return new TextSelectionTransformResult
@@ -129,22 +119,21 @@ public sealed class EditorFormattingService
     {
         (int lineStart, int lineEnd) = ExpandToLineRange(text, selectionStart, selectionLength);
         string targetBlock = text.Substring(lineStart, lineEnd - lineStart);
-        string lineEnding = DetectLineEnding(text);
-        string[] lines = NormalizeLineEndings(targetBlock).Split('\n', StringSplitOptions.None);
         int visibleIndex = 1;
 
-        for (int index = 0; index < lines.Length; index++)
-        {
-            if (lines[index].Length == 0)
+        string replacedBlock = TransformLinesPreservingEndings(
+            targetBlock,
+            line =>
             {
-                continue;
-            }
+                if (line.Length == 0)
+                {
+                    return line;
+                }
 
-            lines[index] = $"{visibleIndex}. {lines[index]}";
-            visibleIndex++;
-        }
-
-        string replacedBlock = string.Join(lineEnding, lines);
+                string numberedLine = $"{visibleIndex}. {line}";
+                visibleIndex++;
+                return numberedLine;
+            });
         string updatedText = text[..lineStart] + replacedBlock + text[lineEnd..];
 
         return new TextSelectionTransformResult
@@ -206,18 +195,45 @@ public sealed class EditorFormattingService
     }
 
     /// <summary>
-    /// Ermittelt den im Dokument überwiegend verwendeten Zeilenumbruch.
+    /// Transformiert die sichtbaren Inhalte aller Zeilen, ohne deren individuelle Zeilentrenner zu verändern.
     /// </summary>
-    private static string DetectLineEnding(string text)
+    /// <param name="text">Zu bearbeitender Textblock.</param>
+    /// <param name="transformLine">Transformation für den Inhalt einer einzelnen Zeile ohne Zeilentrenner.</param>
+    /// <returns>Transformierter Block mit unveränderten CRLF-, LF- und CR-Trennern.</returns>
+    private static string TransformLinesPreservingEndings(
+        string text,
+        Func<string, string> transformLine)
     {
-        return text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
-    }
+        var result = new StringBuilder(text.Length);
+        int lineStart = 0;
 
-    /// <summary>
-    /// Vereinheitlicht CRLF- und CR-Zeilenumbrüche für die zeilenweise Verarbeitung.
-    /// </summary>
-    private static string NormalizeLineEndings(string text)
-    {
-        return text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        while (lineStart < text.Length)
+        {
+            int lineEnd = lineStart;
+            while (lineEnd < text.Length && text[lineEnd] != '\r' && text[lineEnd] != '\n')
+            {
+                lineEnd++;
+            }
+
+            result.Append(transformLine(text[lineStart..lineEnd]));
+            if (lineEnd >= text.Length)
+            {
+                break;
+            }
+
+            // CRLF bildet einen einzigen logischen Trenner; einzelne CR- oder LF-Zeichen bleiben ebenfalls unverändert.
+            if (text[lineEnd] == '\r' && lineEnd + 1 < text.Length && text[lineEnd + 1] == '\n')
+            {
+                result.Append("\r\n");
+                lineStart = lineEnd + 2;
+            }
+            else
+            {
+                result.Append(text[lineEnd]);
+                lineStart = lineEnd + 1;
+            }
+        }
+
+        return result.ToString();
     }
 }
