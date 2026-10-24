@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Recent-Folder-Pfade syntaktisch normalisiert, dedupliziert und auf zehn Einträge begrenzt. Relative oder ungültige Altwerte werden ignoriert, nicht erreichbare absolute Vaults bleiben erhalten. Laufwerkswurzeln und Anzeigenamen sowie unabhängige Rückgabeschnappschüsse sind durch Tests abgesichert.
+
 - JSON-Einstellungen gegen null-Einträge und leere Recent-Folder-Pfade abgesichert. Einstellungszugriff isoliert testbar gemacht; Lesen erzeugt keine Verzeichnisse. Abbruch wird vor Seiteneffekten und Dateiersetzung geprüft. Datei-, Unicode- und Abbruchtests ergänzt.
 
 - Outline erkennt ATX-Überschriften mit bis zu drei führenden Leerzeichen und entfernt optionale Abschlussrauten aus dem Anzeigetitel. Originalpositionen bleiben erhalten; Unicode-, LF-/CRLF- und Codeblock-Regressionstests sowie Spezifikation ergänzt.

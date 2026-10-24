@@ -75,9 +75,33 @@ public sealed class NotesWorkspaceService
     /// </summary>
     public IReadOnlyList<RecentFolderEntry> GetRecentFolders()
     {
-        return _settings.RecentFolders
-            .OrderByDescending(item => item.LastOpenedUtc)
-            .ToList();
+        var result = new List<RecentFolderEntry>();
+        var knownPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Persistierte Pfade werden nur syntaktisch normalisiert. Ein vorübergehend nicht erreichbarer Vault
+        // bleibt damit sichtbar, während ungültige und doppelte Alt-Einträge nicht bis in die UI gelangen.
+        foreach (RecentFolderEntry? item in _settings.RecentFolders.OrderByDescending(item => item?.LastOpenedUtc))
+        {
+            if (item is null
+                || !TryNormalizeStoredVaultPath(item.Path, out string normalizedPath)
+                || !knownPaths.Add(normalizedPath))
+            {
+                continue;
+            }
+
+            result.Add(new RecentFolderEntry
+            {
+                Path = normalizedPath,
+                LastOpenedUtc = item.LastOpenedUtc
+            });
+
+            if (result.Count == 10)
+            {
+                break;
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -85,7 +109,9 @@ public sealed class NotesWorkspaceService
     /// </summary>
     public string? GetLastOpenedVaultPath()
     {
-        return _settings.LastOpenedVaultPath;
+        return TryNormalizeStoredVaultPath(_settings.LastOpenedVaultPath, out string normalizedPath)
+            ? normalizedPath
+            : null;
     }
 
     /// <summary>
@@ -138,7 +164,9 @@ public sealed class NotesWorkspaceService
             throw new ArgumentException("Der Vault-Pfad darf nicht leer sein.", nameof(vaultPath));
         }
 
-        string normalizedVaultPath = Path.GetFullPath(vaultPath);
+        // Das Entfernen eines optionalen Abschlusszeichens verhindert doppelte Recent-Folder-Einträge.
+        // Path.TrimEndingDirectorySeparator erhält Laufwerks- und Freigabewurzeln unverändert.
+        string normalizedVaultPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(vaultPath));
         if (!_vaultRepository.VaultExists(normalizedVaultPath))
         {
             throw new DirectoryNotFoundException($"Der Vault-Ordner wurde nicht gefunden: {vaultPath}");
@@ -146,7 +174,7 @@ public sealed class NotesWorkspaceService
 
         var vaultInfo = new VaultInfo
         {
-            DisplayName = Path.GetFileName(normalizedVaultPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+            DisplayName = GetVaultDisplayName(normalizedVaultPath),
             RootPath = normalizedVaultPath
         };
 
@@ -678,21 +706,61 @@ public sealed class NotesWorkspaceService
             }
         };
 
-        // Eigene Einträge verhindern, dass ein fehlgeschlagener Speicherversuch die aktiven Einstellungen verändert.
-        recentFolders.AddRange(_settings.RecentFolders
+        // GetRecentFolders liefert unabhängige, normalisierte und bereits deduplizierte Einträge.
+        // Dadurch kann auch ein fehlgeschlagener Speicherversuch die aktiven Einstellungen nicht verändern.
+        recentFolders.AddRange(GetRecentFolders()
             .Where(item => !string.Equals(item.Path, vaultPath, StringComparison.OrdinalIgnoreCase))
-            .Take(9)
-            .Select(item => new RecentFolderEntry
-            {
-                Path = item.Path,
-                LastOpenedUtc = item.LastOpenedUtc
-            }));
+            .Take(9));
 
         return new AppSettings
         {
             LastOpenedVaultPath = vaultPath,
             RecentFolders = recentFolders
         };
+    }
+
+    /// <summary>
+    /// Ermittelt einen lesbaren Vault-Namen und behält bei Wurzelpfaden den vollständigen Pfad bei.
+    /// </summary>
+    private static string GetVaultDisplayName(string normalizedVaultPath)
+    {
+        string displayName = Path.GetFileName(normalizedVaultPath);
+        return string.IsNullOrEmpty(displayName) ? normalizedVaultPath : displayName;
+    }
+
+    /// <summary>
+    /// Normalisiert einen gespeicherten absoluten Vault-Pfad ohne Prüfung seiner aktuellen Erreichbarkeit.
+    /// </summary>
+    private static bool TryNormalizeStoredVaultPath(string? vaultPath, out string normalizedPath)
+    {
+        normalizedPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(vaultPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            if (!Path.IsPathFullyQualified(vaultPath))
+            {
+                return false;
+            }
+
+            normalizedPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(vaultPath));
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+        catch (PathTooLongException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
