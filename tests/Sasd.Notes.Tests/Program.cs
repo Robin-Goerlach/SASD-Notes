@@ -23,6 +23,7 @@ internal static class Program
             RunOutlineParserTests();
             MarkdownCodeBlockTests.Run();
             MarkdownInlineCodeTests.Run();
+            EditorTextPositionMapperTests.Run();
             RunSearchServiceTests();
             SearchPreviewTests.Run();
             RunDisplayFormattingTests();

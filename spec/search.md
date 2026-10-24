@@ -23,6 +23,6 @@ Jeder Inhaltstreffer speichert die ursprüngliche UTF-16-Fundposition und die
 Länge des tatsächlich gesuchten, bereits getrimmten Begriffs. Reine Titel-
 oder Pfadtreffer haben Position -1 und Länge 0. Die Oberfläche verwendet
 diese gespeicherte Länge für die Auswahl, nicht den späteren Inhalt des
-Suchfelds. Bei inzwischen kürzerem Editortext wird die Länge auf den
-verfügbaren Rest begrenzt. Nachträgliche Inhaltsänderungen können Treffer
+Suchfelds. Die Zuordnung zum Editortext berücksichtigt unterschiedliche Zeilenenden
+(siehe editor-text-positions.md). Ungültige Bereiche werden nicht markiert. Nachträgliche Inhaltsänderungen können Treffer
 weiterhin veralten lassen und erfordern eine erneute Suche.

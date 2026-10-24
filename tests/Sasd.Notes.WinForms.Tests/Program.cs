@@ -47,6 +47,7 @@ internal static class Program
 
             RunVaultLoadingTest();
             RunStartupTargetTests();
+            RunTextPositionMappingTest();
             RunDelayedSettingsStartupTest();
             Console.WriteLine("Alle WinForms-Schließ-, Vault-Lade- und Startzielprüfungen wurden erfolgreich ausgeführt.");
             return 0;
@@ -188,6 +189,28 @@ internal static class Program
         Require(!form.UseWaitCursor, "Nach dem Programmstart muss der Wartecursor zurückgesetzt sein.");
         form.Close();
         PumpUntil(() => form.IsDisposed);
+    }
+
+    /// <summary>
+    /// Prüft die Zuordnung mit dem tatsächlich von RichTextBox zurückgegebenen Text.
+    /// </summary>
+    private static void RunTextPositionMappingTest()
+    {
+        foreach (string newline in new[] { "\r\n", "\n" })
+        {
+            string source = "Vorher 😀" + newline + "# Titel" + newline + "[[Ziel]]";
+            using var editor = new RichTextBox();
+            editor.CreateControl();
+            editor.Text = source;
+            int linkStart = source.IndexOf("[[Ziel]]", StringComparison.Ordinal);
+            var range = EditorTextPositionMapper.Map(source, editor.Text, linkStart, 8);
+            Require(range.HasValue, "Der Originaltext muss auf die tatsächliche RichTextBox-Darstellung abbildbar sein.");
+            editor.Select(range.GetValueOrDefault().Start, range.GetValueOrDefault().Length);
+            Require(editor.SelectedText == "[[Ziel]]", "Die RichTextBox muss nach der Zuordnung exakt den Link markieren.");
+            var reverse = EditorTextPositionMapper.Map(editor.Text, source, editor.SelectionStart, editor.SelectionLength);
+            Require(reverse.HasValue && reverse.Value.Start == linkStart && reverse.Value.Length == 8,
+                "Die Editorauswahl muss auf den vollständigen Original-Link zurückführen.");
+        }
     }
 
     /// <summary>

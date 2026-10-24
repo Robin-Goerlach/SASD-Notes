@@ -405,12 +405,14 @@ public partial class MainForm : Form
 
         OpenNoteInEditor(targetNote);
 
-        if (selectedHit.MatchIndex >= 0 && selectedHit.MatchLength > 0 && selectedHit.MatchIndex < richTextBoxEditor.TextLength)
+        // Parser und Suche verwenden den Originaltext; RichTextBox kann dessen Zeilenenden normalisieren.
+        var selection = EditorTextPositionMapper.Map(
+            targetNote.Content, richTextBoxEditor.Text, selectedHit.MatchIndex, selectedHit.MatchLength);
+        if (selectedHit.MatchLength > 0 && selection is { } mapped)
         {
             richTextBoxEditor.Focus();
-            richTextBoxEditor.SelectionStart = selectedHit.MatchIndex;
-            // Das Suchfeld kann seit der Berechnung verändert worden sein. Maßgeblich bleibt der gespeicherte Treffer.
-            richTextBoxEditor.SelectionLength = Math.Min(selectedHit.MatchLength, richTextBoxEditor.TextLength - selectedHit.MatchIndex);
+            richTextBoxEditor.SelectionStart = mapped.Start;
+            richTextBoxEditor.SelectionLength = mapped.Length;
             richTextBoxEditor.ScrollToCaret();
         }
     }
@@ -451,8 +453,15 @@ public partial class MainForm : Form
             return;
         }
 
+        var position = EditorTextPositionMapper.Map(_currentNote.Content, richTextBoxEditor.Text, outline.StartIndex, 0);
+        if (position is not { } mapped)
+        {
+            SetStatus("Die Gliederungsposition passt nicht mehr zum Editorinhalt.");
+            return;
+        }
+
         richTextBoxEditor.Focus();
-        richTextBoxEditor.SelectionStart = Math.Clamp(outline.StartIndex, 0, richTextBoxEditor.TextLength);
+        richTextBoxEditor.SelectionStart = mapped.Start;
         richTextBoxEditor.SelectionLength = 0;
         richTextBoxEditor.ScrollToCaret();
     }
@@ -1145,10 +1154,19 @@ public partial class MainForm : Form
             return;
         }
 
-        NoteDocument? targetNote = _workspaceService.TryResolveLink(
-            _currentNote,
-            richTextBoxEditor.SelectionStart,
-            richTextBoxEditor.SelectedText);
+        // Die Rückrichtung ist genauso wichtig: Cursor und Auswahl stammen aus dem Editor,
+        // während die gültigen Wiki-Link-Bereiche im Originaltext ermittelt wurden.
+        var selection = EditorTextPositionMapper.Map(
+            richTextBoxEditor.Text, _currentNote.Content,
+            richTextBoxEditor.SelectionStart, richTextBoxEditor.SelectionLength);
+        if (selection is not { } mapped)
+        {
+            SetStatus("Die Editorposition passt nicht mehr zum Notizinhalt.");
+            return;
+        }
+
+        string? selectedText = mapped.Length == 0 ? null : _currentNote.Content.Substring(mapped.Start, mapped.Length);
+        NoteDocument? targetNote = _workspaceService.TryResolveLink(_currentNote, mapped.Start, selectedText);
 
         if (targetNote is null)
         {

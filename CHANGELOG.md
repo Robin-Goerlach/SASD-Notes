@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Gemeinsame Positionszuordnung zwischen Notiz- und Editortext ergänzt. Suche, Outline und Wiki-Link-Navigation berücksichtigen unterschiedliche CRLF-/LF-Zeilenenden. Ungültige Bereiche werden abgewiesen. Kern- und RichTextBox-Regressionstests sowie Verhaltensspezifikation ergänzt.
+
 - Suchtreffer speichern ihre tatsächliche UTF-16-Trefferlänge. Die Editor-Markierung verwendet diese Länge statt des veränderlichen Suchfelds; Rand-Leerzeichen verlängern die Auswahl nicht mehr. Tests für Titel-, Unicode- und LF-/CRLF-Treffer ergänzt.
 
 - Suchvorschauen trennen UTF-16-Surrogatpaare an Ausschnittgrenzen nicht mehr und kennzeichnen auch ausgelassene Enden. Gleich bewertete, gleichnamige Treffer werden zusätzlich nach Pfad sortiert. Unicode-, LF-/CRLF-, Leertext- und Sortiertests sowie Suchspezifikation ergänzt.
