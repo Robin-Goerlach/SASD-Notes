@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Suchvorschauen trennen UTF-16-Surrogatpaare an Ausschnittgrenzen nicht mehr und kennzeichnen auch ausgelassene Enden. Gleich bewertete, gleichnamige Treffer werden zusätzlich nach Pfad sortiert. Unicode-, LF-/CRLF-, Leertext- und Sortiertests sowie Suchspezifikation ergänzt.
+
 - Backlinks zeigen jede Quelldatei nur einmal, auch bei mehrfachen Links oder Aliasvarianten. Gleichnamige Quellen in verschiedenen Ordnern bleiben getrennt; der erste gültige Link liefert den Kontext. Regressionstests und Backlink-Spezifikation ergänzt.
 
 - Dirty-State wird anhand des tatsächlichen Textunterschieds ermittelt. Unveränderte Editorereignisse und die Rückkehr zum letzten Lade-/Speicherstand erzeugen keine unnötige Speicherabfrage. Regressionstests für Unicode, Zeilenumbrüche, leere Texte und asynchrone Speicherabschlüsse ergänzt.

@@ -24,6 +24,7 @@ internal static class Program
             MarkdownCodeBlockTests.Run();
             MarkdownInlineCodeTests.Run();
             RunSearchServiceTests();
+            SearchPreviewTests.Run();
             RunDisplayFormattingTests();
             RunEditorFormattingTests();
             RunFormatterLineBoundaryTests();

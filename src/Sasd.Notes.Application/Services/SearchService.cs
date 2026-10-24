@@ -12,7 +12,8 @@ public sealed class SearchService
     /// </summary>
     /// <param name="notes">Zu durchsuchende Notizen.</param>
     /// <param name="query">Suchbegriff.</param>
-    /// <returns>Gefundene Treffer in sinnvoller Sortierung.</returns>
+    /// <returns>Treffer nach absteigendem Score, anschließend nach Titel und relativem Pfad sortiert.</returns>
+    /// <remarks>Vorschauen erhalten gültige UTF-16-Surrogatpaare; die Fundposition bezieht sich weiterhin auf den Originaltext.</remarks>
     public IReadOnlyList<SearchHit> Search(IReadOnlyList<NoteDocument> notes, string query)
     {
         // Leere Suchanfragen liefern bewusst keine Trefferliste.
@@ -63,6 +64,7 @@ public sealed class SearchService
         return results
             .OrderByDescending(result => result.Score)
             .ThenBy(result => result.NoteTitle, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(result => result.RelativePath, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
@@ -75,18 +77,27 @@ public sealed class SearchService
     /// <returns>Kurzer Vorschautext.</returns>
     private static string BuildPreview(string content, int matchIndex, int queryLength)
     {
-        // Ohne gefundene Position wird der Anfang des Dokuments als Fallback verwendet.
-        if (matchIndex < 0)
+        // Ohne Inhaltstreffer dient der Dokumentanfang als Vorschau. Die Fundposition selbst bleibt unverändert.
+        int start = matchIndex < 0 ? 0 : Math.Max(0, matchIndex - 35);
+        long desiredLength = matchIndex < 0 ? 120L : queryLength + 70L;
+        int end = (int)Math.Min(content.Length, start + desiredLength);
+
+        // UTF-16 speichert Zeichen wie viele Emojis als Surrogatpaar. Die Vorschau darf dieses Paar
+        // weder am Anfang noch am Ende trennen. Dies ist keine vollständige Graphemsegmentierung.
+        if (start > 0 && start < content.Length &&
+            char.IsLowSurrogate(content[start]) && char.IsHighSurrogate(content[start - 1]))
         {
-            return content.Length <= 120
-                ? content.ReplaceLineEndings(" ")
-                : content[..120].ReplaceLineEndings(" ") + "...";
+            start--;
+        }
+        if (end > 0 && end < content.Length &&
+            char.IsHighSurrogate(content[end - 1]) && char.IsLowSurrogate(content[end]))
+        {
+            end++;
         }
 
-        int start = Math.Max(0, matchIndex - 35);
-        int length = Math.Min(content.Length - start, Math.Max(queryLength + 70, 70));
-
-        string excerpt = content.Substring(start, length).ReplaceLineEndings(" ").Trim();
-        return start > 0 ? "... " + excerpt : excerpt;
+        string excerpt = content[start..end].ReplaceLineEndings(" ").Trim();
+        string prefix = start > 0 ? "... " : string.Empty;
+        string suffix = end < content.Length ? " ..." : string.Empty;
+        return prefix + excerpt + suffix;
     }
 }
