@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Suchtreffer speichern ihre tatsächliche UTF-16-Trefferlänge. Die Editor-Markierung verwendet diese Länge statt des veränderlichen Suchfelds; Rand-Leerzeichen verlängern die Auswahl nicht mehr. Tests für Titel-, Unicode- und LF-/CRLF-Treffer ergänzt.
+
 - Suchvorschauen trennen UTF-16-Surrogatpaare an Ausschnittgrenzen nicht mehr und kennzeichnen auch ausgelassene Enden. Gleich bewertete, gleichnamige Treffer werden zusätzlich nach Pfad sortiert. Unicode-, LF-/CRLF-, Leertext- und Sortiertests sowie Suchspezifikation ergänzt.
 
 - Backlinks zeigen jede Quelldatei nur einmal, auch bei mehrfachen Links oder Aliasvarianten. Gleichnamige Quellen in verschiedenen Ordnern bleiben getrennt; der erste gültige Link liefert den Kontext. Regressionstests und Backlink-Spezifikation ergänzt.

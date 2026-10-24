@@ -17,6 +17,7 @@ internal static class SearchPreviewTests
         NoteDocument fallback = CreateNote(new string('x', 119) + "😀 Ende");
         SearchHit fallbackHit = search.Search(new[] { fallback }, "Treffer").Single();
         AssertEx.Equal(-1, fallbackHit.MatchIndex, "Ein reiner Titeltreffer darf keine Inhaltsposition vortäuschen.");
+        AssertEx.Equal(0, fallbackHit.MatchLength, "Ein reiner Titeltreffer darf keine Inhaltsmarkierung anfordern.");
         AssertEx.True(fallbackHit.PreviewText.Contains("😀", StringComparison.Ordinal),
             "Die Fallback-Vorschau darf das Emoji an der Abschneidegrenze nicht trennen.");
         AssertEx.True(fallbackHit.PreviewText.EndsWith(" ...", StringComparison.Ordinal),
@@ -40,12 +41,23 @@ internal static class SearchPreviewTests
             string content = "Vorher 😀" + newline + "Q nachher";
             SearchHit hit = search.Search(new[] { CreateNote(content) }, " Q ").Single();
             AssertEx.Equal(content.IndexOf('Q'), hit.MatchIndex, "LF/CRLF und Suchbegriff-Trimmen dürfen die Inhaltsposition nicht verändern.");
+            AssertEx.Equal(1, hit.MatchLength, "Rand-Leerzeichen der Suchanfrage dürfen die Markierung nicht verlängern.");
+            AssertEx.Equal("Q", content.Substring(hit.MatchIndex, hit.MatchLength), "Der gespeicherte Bereich muss exakt den gefundenen Suchbegriff umfassen.");
             AssertEx.False(hit.PreviewText.Contains('\n') || hit.PreviewText.Contains('\r'), "Die Vorschau soll einzeilig bleiben.");
         }
 
         SearchHit empty = search.Search(new[] { CreateNote(string.Empty) }, "Treffer").Single();
         AssertEx.Equal(string.Empty, empty.PreviewText, "Eine leere Notiz muss eine leere Vorschau liefern.");
         AssertEx.Equal(0, search.Search(new[] { fallback }, "   ").Count, "Leere Suchbegriffe dürfen keine Treffer liefern.");
+
+        // UTF-16-Längen müssen auch für mehrteilige Zeichen mit der Editor-API übereinstimmen.
+        NoteDocument emojiNote = CreateNote("Vor 😀 nach");
+        SearchHit emojiHit = search.Search(new[] { emojiNote }, "  😀  ").Single();
+        AssertEx.Equal(2, emojiHit.MatchLength, "Ein Emoji-Surrogatpaar benötigt zwei UTF-16-Positionen.");
+        AssertEx.Equal("😀", emojiNote.Content.Substring(emojiHit.MatchIndex, emojiHit.MatchLength),
+            "Ein Trefferbereich darf das Emoji nicht nur teilweise umfassen.");
+        search.Search(new[] { emojiNote }, "nach");
+        AssertEx.Equal(2, emojiHit.MatchLength, "Eine spätere Suchanfrage darf einen vorhandenen Treffer nicht verändern.");
 
         NoteDocument first = CreateNote("Q", "A/Notiz.md");
         NoteDocument second = CreateNote("Q", "B/Notiz.md");

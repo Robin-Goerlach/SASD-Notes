@@ -57,7 +57,8 @@ public sealed class SearchService
                 RelativePath = note.RelativePath,
                 PreviewText = BuildPreview(note.Content, matchIndex, trimmedQuery.Length),
                 Score = score,
-                MatchIndex = matchIndex
+                MatchIndex = matchIndex,
+                MatchLength = matchIndex >= 0 ? trimmedQuery.Length : 0
             });
         }
 

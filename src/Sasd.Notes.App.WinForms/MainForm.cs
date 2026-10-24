@@ -405,11 +405,12 @@ public partial class MainForm : Form
 
         OpenNoteInEditor(targetNote);
 
-        if (selectedHit.MatchIndex >= 0 && selectedHit.MatchIndex < richTextBoxEditor.TextLength)
+        if (selectedHit.MatchIndex >= 0 && selectedHit.MatchLength > 0 && selectedHit.MatchIndex < richTextBoxEditor.TextLength)
         {
             richTextBoxEditor.Focus();
             richTextBoxEditor.SelectionStart = selectedHit.MatchIndex;
-            richTextBoxEditor.SelectionLength = Math.Min(toolStripTextBoxSearch.Text.Length, richTextBoxEditor.TextLength - selectedHit.MatchIndex);
+            // Das Suchfeld kann seit der Berechnung verändert worden sein. Maßgeblich bleibt der gespeicherte Treffer.
+            richTextBoxEditor.SelectionLength = Math.Min(selectedHit.MatchLength, richTextBoxEditor.TextLength - selectedHit.MatchIndex);
             richTextBoxEditor.ScrollToCaret();
         }
     }

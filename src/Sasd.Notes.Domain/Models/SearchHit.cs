@@ -26,9 +26,14 @@ public sealed class SearchHit
     public int Score { get; init; }
 
     /// <summary>
-    /// Gefundene Position im Dokument, sofern bekannt.
+    /// Gefundene UTF-16-Position im Originaldokument oder -1 bei einem reinen Titel-/Pfadtreffer.
     /// </summary>
-    public int MatchIndex { get; init; }
+    public int MatchIndex { get; init; } = -1;
+
+    /// <summary>
+    /// Länge des tatsächlichen Inhaltstreffers in UTF-16-Zeichenpositionen; 0 bei reinen Titel-/Pfadtreffern.
+    /// </summary>
+    public int MatchLength { get; init; }
 
     /// <summary>
     /// Liefert eine lesbare Darstellung für Listen in der Oberfläche.

@@ -18,3 +18,11 @@ Ausschnittgrenzen dürfen gültige UTF-16-Surrogatpaare nicht trennen. Die
 ursprüngliche Fundposition wird dadurch nicht verändert. Dies gewährleistet
 keine vollständige Segmentierung kombinierter Zeichen oder Emoji-Sequenzen.
 Die Suche verändert weder Notiztext noch Dateisystem und benötigt keinen Index.
+
+Jeder Inhaltstreffer speichert die ursprüngliche UTF-16-Fundposition und die
+Länge des tatsächlich gesuchten, bereits getrimmten Begriffs. Reine Titel-
+oder Pfadtreffer haben Position -1 und Länge 0. Die Oberfläche verwendet
+diese gespeicherte Länge für die Auswahl, nicht den späteren Inhalt des
+Suchfelds. Bei inzwischen kürzerem Editortext wird die Länge auf den
+verfügbaren Rest begrenzt. Nachträgliche Inhaltsänderungen können Treffer
+weiterhin veralten lassen und erfordern eine erneute Suche.
