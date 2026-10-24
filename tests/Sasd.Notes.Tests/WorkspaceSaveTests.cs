@@ -59,6 +59,8 @@ internal static class WorkspaceSaveTests
         Require(note.Content == "[[Neu]] Ω\n" && note.Links.Single().Target == "Neu",
             "Der Abschluss darf weder neuen Text noch neue Links überschreiben.");
         Require(note.LastModifiedUtc == repository.SavedTimestamp, "Der erfolgreiche Zeitstempel muss übernommen werden.");
+        Require(note.PersistedContentHash == repository.SavedHash,
+            "Der erfolgreiche Inhaltsfingerabdruck muss vom Speicherschnappschuss übernommen werden.");
 
         // Ein neuerer Editorstand wird zum gerade gespeicherten Text verworfen, nicht zum ursprünglichen Ladestand.
         Require(workspace.TryDiscardWorkingChanges(note), "Nach Schreibabschluss müssen neuere Änderungen verwerfbar sein.");
@@ -70,6 +72,8 @@ internal static class WorkspaceSaveTests
         Task retry = workspace.SaveNoteAsync(note, note.Content);
         Require(repository.PendingNote!.LastModifiedUtc == repository.SavedTimestamp,
             "Der Folgeauftrag muss vom zuletzt erfolgreich gespeicherten Zeitstempel ausgehen.");
+        Require(repository.PendingNote.PersistedContentHash == repository.SavedHash,
+            "Der Folgeauftrag muss auch den zuletzt gespeicherten Inhaltsfingerabdruck verwenden.");
         repository.CompleteSave();
         await retry;
         Require(!note.IsDirty, "Ein vollständig gespeicherter aktueller Stand muss clean werden.");
@@ -236,12 +240,16 @@ internal static class WorkspaceSaveTests
         public int SaveCount { get; private set; }
         /// <summary>Simulierter Zeitstempel des erfolgreichen Dateistands.</summary>
         public DateTime SavedTimestamp { get; private set; } = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        /// <summary>Simulierter Fingerabdruck des erfolgreichen Dateistands.</summary>
+        public string SavedHash { get; private set; } = "hash-0";
 
         /// <summary>Bestätigt den offenen Auftrag mit einem neuen Zeitstempel.</summary>
         public void CompleteSave()
         {
             SavedTimestamp = SavedTimestamp.AddSeconds(1);
+            SavedHash = "hash-" + SavedTimestamp.Ticks;
             PendingNote!.LastModifiedUtc = SavedTimestamp;
+            PendingNote.PersistedContentHash = SavedHash;
             _completion.SetResult(true);
         }
 
@@ -269,7 +277,8 @@ internal static class WorkspaceSaveTests
                     FullPath = Path.Combine(vaultPath, "Notiz.md"),
                     RelativePath = "Notiz.md",
                     Content = "# Original",
-                    LastModifiedUtc = SavedTimestamp
+                    LastModifiedUtc = SavedTimestamp,
+                    PersistedContentHash = SavedHash
                 }
             };
             return Task.FromResult(notes);
@@ -282,7 +291,8 @@ internal static class WorkspaceSaveTests
             return Task.FromResult(new NoteDocument
             {
                 Id = "Notiz.md", Title = "Notiz", FullPath = fullNotePath,
-                RelativePath = "Notiz.md", Content = "# Original", LastModifiedUtc = SavedTimestamp
+                RelativePath = "Notiz.md", Content = "# Original", LastModifiedUtc = SavedTimestamp,
+                PersistedContentHash = SavedHash
             });
         }
 

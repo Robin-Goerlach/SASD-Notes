@@ -21,13 +21,25 @@ editor text, dirty flag, loaded timestamp and discard baseline untouched.
 A busy or obsolete model causes no repository check. Unrelated notes are not
 polled by this UI timer.
 
-The existing repository timestamp comparison remains unchanged. This is not a
-filesystem watcher, a content-hash comparison, or a guarantee against concurrent
-writers. The repository can report missing or inaccessible paths as changed
+The filesystem adapter records both the last-write timestamp and a SHA-256
+fingerprint of the decoded Markdown text after load, creation, and successful
+save. A timestamp difference reports a change immediately. When the timestamp
+is unchanged, the current decoded text is fingerprinted and compared as well.
+This detects same-length edits and changes whose timestamp was preserved or
+reset. A model without a fingerprint retains timestamp-only compatibility.
+
+The fingerprint is derived metadata held in memory; it is never written into the
+Markdown file and is not a security signature. A byte-order-mark-only change is
+ignored when the decoded text remains identical.
+
+The comparison does not provide a writer lock or a transaction across processes.
+A concurrent change after the final pre-save check can still race with the atomic
+replacement. The repository can report missing or inaccessible paths as changed
 when its underlying existence check cannot distinguish those cases. The explicit
 unavailable outcome covers access exceptions actually reported by the adapter.
 Save conflict detection and explicit reload remain separate operations.
 
-Verification includes controlled repository failures and recovery, busy/foreign
-models, preservation of local drafts, and the real Windows timer with a visible
-form and message pump.
+Verification includes controlled repository failures and recovery, busy or
+foreign models, preserved local drafts, same-length changes with equal timestamps,
+fingerprint propagation, and the real Windows timer with a visible form and
+message pump.

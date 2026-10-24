@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Sasd.Notes.Application.Interfaces;
 using Sasd.Notes.Domain.Interfaces;
 using Sasd.Notes.Domain.Models;
@@ -114,6 +116,7 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             Content = content,
             Links = _wikiLinkParser.Parse(content),
             LastModifiedUtc = File.GetLastWriteTimeUtc(filePath),
+            PersistedContentHash = ComputeContentHash(content),
             IsDirty = false
         };
     }
@@ -137,13 +140,26 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             throw new FileNotFoundException("Die zu speichernde Markdown-Datei wurde nicht gefunden.", normalizedNotePath);
         }
 
-        // Verhindert, dass Änderungen eines anderen Editors stillschweigend überschrieben werden.
+        // Zeitstempel erkennen den üblichen Konflikt schnell. Der zusätzliche Textfingerabdruck
+        // schließt Änderungen ein, deren Zeitstempel gleich geblieben oder zurückgesetzt worden ist.
         DateTime currentLastModifiedUtc = File.GetLastWriteTimeUtc(normalizedNotePath);
-        if (note.LastModifiedUtc != default && currentLastModifiedUtc != note.LastModifiedUtc)
+        bool timestampChanged = note.LastModifiedUtc != default
+            && currentLastModifiedUtc != note.LastModifiedUtc;
+        bool contentChanged = false;
+        if (!timestampChanged && !string.IsNullOrEmpty(note.PersistedContentHash))
+        {
+            string persistedContent = await File.ReadAllTextAsync(normalizedNotePath, cancellationToken);
+            contentChanged = !string.Equals(
+                ComputeContentHash(persistedContent),
+                note.PersistedContentHash,
+                StringComparison.Ordinal);
+        }
+
+        if (timestampChanged || contentChanged)
         {
             throw new IOException(
                 "Die Markdown-Datei wurde seit dem Laden extern geändert. " +
-                "Bitte laden Sie den Vault neu und prüfen Sie die Änderungen.");
+                "Bitte laden Sie die Notiz neu und prüfen Sie die Änderungen.");
         }
 
         string? directory = Path.GetDirectoryName(normalizedNotePath);
@@ -154,6 +170,7 @@ public sealed class FileSystemVaultRepository : IVaultRepository
 
         await WriteTextAtomicallyAsync(normalizedNotePath, note.Content, replaceExisting: true, cancellationToken: cancellationToken);
         note.LastModifiedUtc = File.GetLastWriteTimeUtc(normalizedNotePath);
+        note.PersistedContentHash = ComputeContentHash(note.Content);
     }
 
     /// <inheritdoc />
@@ -168,7 +185,22 @@ public sealed class FileSystemVaultRepository : IVaultRepository
         }
 
         DateTime currentLastModifiedUtc = File.GetLastWriteTimeUtc(note.FullPath);
-        return note.LastModifiedUtc != default && currentLastModifiedUtc != note.LastModifiedUtc;
+        if (note.LastModifiedUtc != default && currentLastModifiedUtc != note.LastModifiedUtc)
+        {
+            return true;
+        }
+
+        if (string.IsNullOrEmpty(note.PersistedContentHash))
+        {
+            // Ältere oder künstliche Modelle ohne Fingerabdruck behalten das bisherige Zeitstempelverhalten.
+            return false;
+        }
+
+        string currentContent = File.ReadAllText(note.FullPath);
+        return !string.Equals(
+            ComputeContentHash(currentContent),
+            note.PersistedContentHash,
+            StringComparison.Ordinal);
     }
 
     /// <inheritdoc />
@@ -275,9 +307,21 @@ public sealed class FileSystemVaultRepository : IVaultRepository
                 Content = initialContent,
                 Links = _wikiLinkParser.Parse(initialContent),
                 LastModifiedUtc = File.GetLastWriteTimeUtc(fullPath),
+                PersistedContentHash = ComputeContentHash(initialContent),
                 IsDirty = false
             };
         }
+    }
+
+    /// <summary>
+    /// Berechnet einen stabilen Fingerabdruck des bereits dekodierten Markdown-Texts.
+    /// </summary>
+    private static string ComputeContentHash(string content)
+    {
+        // Der Hash bezieht sich auf den Textstand. Unterschiede bei einer reinen BOM-Darstellung
+        // gelten daher nicht als Inhaltsänderung, solange der dekodierte Markdown-Text gleich bleibt.
+        byte[] utf8Bytes = Encoding.UTF8.GetBytes(content);
+        return Convert.ToHexString(SHA256.HashData(utf8Bytes));
     }
 
     /// <summary>

@@ -41,6 +41,12 @@ public sealed class NoteDocument
     public DateTime LastModifiedUtc { get; set; }
 
     /// <summary>
+    /// SHA-256-Fingerabdruck des zuletzt geladenen oder erfolgreich gespeicherten Textstands.
+    /// </summary>
+    /// <remarks>Der Wert beschreibt abgeleitete Dateimetadaten und gehört nicht zum Markdown-Inhalt.</remarks>
+    public string PersistedContentHash { get; set; } = string.Empty;
+
+    /// <summary>
     /// Kennzeichnet, ob der aktuelle Editorstand vom gespeicherten Stand abweicht.
     /// </summary>
     public bool IsDirty { get; set; }

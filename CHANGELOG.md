@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Schutz vor externen Änderungen um einen SHA-256-Fingerabdruck des geladenen beziehungsweise gespeicherten Markdown-Texts ergänzt. Änderungen mit erhaltenem oder zurückgesetztem Zeitstempel werden erkannt und vor dem Speichern abgewiesen. Fingerabdruck-Übernahme, Neuerzeugung, Unicode und gleich lange Fremdänderungen sind getestet und dokumentiert.
+
 - Navigation aus veralteten Suchergebnissen abgesichert. Der tatsächliche Inhaltstreffer wird gespeichert, vor der Auswahl bestätigt und nach Bearbeitungen am nächstgelegenen Vorkommen neu lokalisiert. Entfernte oder inkonsistente Treffer werden nicht falsch markiert. Unicode-, Mehrfachtreffer- und Verschiebungstests sowie Suchspezifikation ergänzt.
 
 - Recent-Folder-Pfade syntaktisch normalisiert, dedupliziert und auf zehn Einträge begrenzt. Relative oder ungültige Altwerte werden ignoriert, nicht erreichbare absolute Vaults bleiben erhalten. Laufwerkswurzeln und Anzeigenamen sowie unabhängige Rückgabeschnappschüsse sind durch Tests abgesichert.

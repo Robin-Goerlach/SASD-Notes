@@ -316,9 +316,10 @@ public sealed class NotesWorkspaceService
             NoteDocument savedSnapshot = CreateWorkingSnapshot(note);
             await _vaultRepository.SaveNoteAsync(vaultPath, savedSnapshot, cancellationToken);
 
-            // Der Zeitstempel gehört nun zum erfolgreich gespeicherten Stand, auch wenn bereits weitergetippt wurde.
-            // Nur identischer aktueller Inhalt darf anschließend als gespeichert gelten.
+            // Zeitstempel und Fingerabdruck gehören nun zum erfolgreich gespeicherten Stand,
+            // auch wenn im Editor bereits weitergetippt wurde.
             note.LastModifiedUtc = savedSnapshot.LastModifiedUtc;
+            note.PersistedContentHash = savedSnapshot.PersistedContentHash;
             note.IsDirty = !string.Equals(note.Content, savedSnapshot.Content, StringComparison.Ordinal);
 
             // Bei neuerem Editorinhalt muss Verwerfen zum gerade gespeicherten Stand zurückführen.
@@ -785,6 +786,7 @@ public sealed class NotesWorkspaceService
             Content = note.Content,
             Links = _wikiLinkParser.Parse(note.Content),
             LastModifiedUtc = note.LastModifiedUtc,
+            PersistedContentHash = note.PersistedContentHash,
             IsDirty = note.IsDirty
         };
     }

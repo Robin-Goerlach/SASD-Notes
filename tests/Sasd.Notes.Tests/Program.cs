@@ -663,10 +663,43 @@ internal static class Program
             AssertEx.Equal(note.Content, await File.ReadAllTextAsync(notePath), "Der atomare Speichervorgang sollte den vollständigen Inhalt schreiben.");
 
             AssertEx.False(repository.HasChangedSinceLoaded(note), "Eine unveränderte gespeicherte Notiz sollte keinen Änderungsalarm auslösen.");
+            AssertEx.True(note.PersistedContentHash.Length > 0,
+                "Nach erfolgreichem Speichern muss ein Inhaltsfingerabdruck vorliegen.");
+
+            // Ein fremder Editor kann einen Zeitstempel erhalten oder zurücksetzen. Ein gleich langer
+            // anderer Text muss trotzdem sowohl bei der Prüfung als auch vor dem Speichern auffallen.
+            string sameLengthExternalContent = note.Content.Replace('A', 'B');
+            AssertEx.Equal(note.Content.Length, sameLengthExternalContent.Length,
+                "Der Testfall muss die Dateilänge als zusätzliches Indiz bewusst unverändert lassen.");
+            DateTime storedTimestamp = note.LastModifiedUtc;
+            await File.WriteAllTextAsync(notePath, sameLengthExternalContent);
+            File.SetLastWriteTimeUtc(notePath, storedTimestamp);
+            note.LastModifiedUtc = File.GetLastWriteTimeUtc(notePath);
+            AssertEx.True(repository.HasChangedSinceLoaded(note),
+                "Ein anderer Inhalt muss auch bei identischem Modell- und Dateizeitstempel erkannt werden.");
+
+            bool sameTimestampConflictDetected = false;
+            try
+            {
+                await repository.SaveNoteAsync(temporaryVault, note);
+            }
+            catch (IOException)
+            {
+                sameTimestampConflictDetected = true;
+            }
+            AssertEx.True(sameTimestampConflictDetected,
+                "Eine gleichzeitige Inhaltsänderung darf auch mit unverändertem Zeitstempel nicht überschrieben werden.");
+
+            // Der frisch geladene externe Stand bildet die Basis für die folgenden unabhängigen Prüffälle.
+            note = await repository.LoadNoteAsync(temporaryVault, notePath);
+            AssertEx.False(repository.HasChangedSinceLoaded(note),
+                "Nach kontrolliertem Neuladen müssen Zeitstempel und Fingerabdruck wieder zusammenpassen.");
 
             NoteDocument createdNote = await repository.CreateNoteAsync(temporaryVault, null, "Neue Notiz");
             AssertEx.Equal("Neue Notiz", createdNote.Title, "Eine neue Notiz sollte den bereinigten Titel erhalten.");
             AssertEx.Equal(createdNote.Content, await File.ReadAllTextAsync(createdNote.FullPath), "Eine neue Notiz sollte vollständig geschrieben werden.");
+            AssertEx.True(createdNote.PersistedContentHash.Length > 0,
+                "Auch eine neu erstellte Notiz benötigt sofort einen Inhaltsfingerabdruck.");
 
             // Prüft den tatsächlich erzeugten Windows-Dateinamen einschließlich Erweiterung.
             NoteDocument deviceNamedNote = await repository.CreateNoteAsync(temporaryVault, null, "CON.md");
