@@ -36,6 +36,7 @@ repository structure for future implementations and their documentation.
 
 ## Implemented V1 features
 
+- Start with an optional vault folder or Markdown file argument
 - Open a local vault folder
 - Scan and load Markdown files recursively
 - Show folders and notes in a TreeView
@@ -83,6 +84,26 @@ dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.cspro
 The WinForms build and application run are Windows-specific. The repository
 should be edited and built from one consistent Windows working copy; do not
 alternate Git clients from PowerShell and WSL against the same working tree.
+
+## Optional startup folder or file
+
+Pass one existing folder or Markdown file. Quote paths containing spaces.
+
+```powershell
+.\Sasd.Notes.App.WinForms.exe "C:\Notes\Entwicklung"
+.\Sasd.Notes.App.WinForms.exe "C:\Notes\Entwicklung\Projektplan.md"
+
+# From the repository root:
+dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj -- ".\sample-vault"
+dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj -- ".\sample-vault\01_Projekte\Projektplan.md"
+```
+
+A folder opens as a vault. A file opens in the editor, with its immediate parent
+folder as the vault. Relative paths use the caller's working directory.
+Without an argument, the application retains its recent-vault startup behavior.
+An invalid explicit argument shows an error instead of opening another vault.
+
+See [the startup contract](spec/startup-target.md) for validation and precedence.
 
 ## Notes about the tests project
 

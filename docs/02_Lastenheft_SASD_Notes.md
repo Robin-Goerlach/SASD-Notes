@@ -735,6 +735,33 @@ Das Produkt soll einen niedrigschwelligen Einstieg ermöglichen.
 
 ---
 
+## FA-21 Optionales Startverzeichnis oder Startdokument
+
+Ergänzung vom 24.10.2026.
+
+### Ziel
+
+Ein gewünschter Themenordner oder ein Markdown-Dokument soll direkt beim
+Programmaufruf geöffnet werden können.
+
+### Muss-Inhalte
+
+- Optional genau ein Pfad zu einem vorhandenen Verzeichnis oder einer vorhandenen .md-Datei.
+- Ohne Pfadangabe bleibt das bisherige Startverhalten erhalten.
+- Ein explizites Startziel hat Vorrang vor dem zuletzt verwendeten Vault.
+- Beim Dateistart wird der direkte Elternordner zum Vault und die Datei im Editor ausgewählt.
+- Relative Pfade, Leerzeichen und Unicode werden unterstützt.
+- Ungültige Angaben erzeugen eine verständliche Fehlermeldung und legen keine Dateien an.
+
+### Akzeptanzkriterien
+
+- Ein Ordnerargument öffnet den richtigen Vault.
+- Ein Dateiargument zeigt das gewünschte Dokument und markiert es im Dateibaum.
+- Ungültige explizite Ziele öffnen keinen anderen Vault als Ersatz.
+- Der Start verändert die Notizdateien nicht.
+
+---
+
 ## 12. Nichtfunktionale Anforderungen
 
 ## NFA-01 Benutzbarkeit

@@ -1,7 +1,9 @@
+using Sasd.Notes.Application.Models;
 using Sasd.Notes.Application.Services;
 using Sasd.Notes.Domain.Interfaces;
 using Sasd.Notes.Domain.Services;
 using Sasd.Notes.Infrastructure.Repositories;
+using Sasd.Notes.Infrastructure.Services;
 
 namespace Sasd.Notes.App.WinForms;
 
@@ -13,10 +15,29 @@ internal static class Program
     /// <summary>
     /// Startet die Anwendung und baut die benötigten Dienste auf.
     /// </summary>
+    /// <param name="args">Optional ein Ordner oder eine Markdown-Datei als Startziel.</param>
+    /// <returns>Null nach regulärem Beenden; eins bei ungültigen Startargumenten.</returns>
     [STAThread]
-    private static void Main()
+    private static int Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
+
+        StartupTarget? startupTarget;
+        try
+        {
+            string? startupPath = StartupArgumentsParser.Parse(args, Environment.CurrentDirectory);
+            startupTarget = startupPath is null ? null : new FileSystemStartupTargetResolver().Resolve(startupPath);
+        }
+        catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            // Ungültige explizite Ziele dürfen nicht stillschweigend den zuletzt verwendeten Vault öffnen.
+            MessageBox.Show(
+                "Das Startziel konnte nicht geöffnet werden." + Environment.NewLine + Environment.NewLine +
+                exception.Message + Environment.NewLine + Environment.NewLine +
+                "Aufruf: Sasd.Notes.App.WinForms.exe [Ordner oder Markdown-Datei]",
+                "SASD Notes", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return 1;
+        }
 
         IWikiLinkParser wikiLinkParser = new WikiLinkParser();
         IOutlineParser outlineParser = new MarkdownOutlineParser();
@@ -38,6 +59,7 @@ internal static class Program
             backlinkService);
 
         // Der vollqualifizierte Name vermeidet die Kollision mit dem Namespace Sasd.Notes.Application.
-        System.Windows.Forms.Application.Run(new MainForm(workspaceService, editorFormattingService));
+        System.Windows.Forms.Application.Run(new MainForm(workspaceService, editorFormattingService, startupTarget));
+        return 0;
     }
 }

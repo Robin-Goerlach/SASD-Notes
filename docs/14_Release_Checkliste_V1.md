@@ -13,6 +13,7 @@ Der Windows-Workflow muss für den zu veröffentlichenden Commit erfolgreich sei
 - Der paketfreie Test-Harness läuft erfolgreich.
 - Der Windows-Test-Harness prüft verzögerte Schließbestätigung, Abbruch und erneuten Schließversuch.
 - Der Windows-Test-Harness prüft Bedienungssperre und abgefangene Schließversuche während eines verzögerten Vault-Ladevorgangs.
+- Startargumente werden ohne UI getestet; der Windows-Harness prüft Standard-, Ordner- und Dateistart mit Editor- und Baumauswahl sowie verzögerter Einstellungen-Initialisierung.
 - Das WinForms-Projekt lässt sich als Release veröffentlichen.
 - Die veröffentlichte WinForms-Ausgabe wird als ZIP-CI-Artefakt bereitgestellt.
 - Es werden keine Merge-Konfliktmarker in Projekt-, Test- oder Dokumentationsdateien gefunden.
@@ -32,6 +33,11 @@ dotnet publish .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj --co
 ## Manuelle Smoke-Prüfung
 
 - Die Anwendung startet ohne geöffneten Vault.
+- Ohne Argument bleibt das bisherige Verhalten mit zuletzt verwendetem Vault erhalten.
+- Ein expliziter Ordnerpfad übersteuert den gemerkten Vault.
+- Eine explizite Markdown-Datei öffnet deren Elternordner als Vault und die richtige Datei im Editor.
+- Pfade mit Leerzeichen und Umlauten funktionieren in Anführungszeichen, auch relativ zum Arbeitsverzeichnis.
+- Ein fehlendes Ziel oder eine .txt-Datei zeigt einen Fehler; kein Ersatz-Vault und keine neue Datei werden geöffnet bzw. erzeugt.
 - Ein Vault mit Unterordnern und leeren Ordnern lässt sich öffnen.
 - Markdown-Dateien werden rekursiv im TreeView angezeigt.
 - Eine Notiz lässt sich öffnen, ändern und speichern.
@@ -56,3 +62,18 @@ Diese Funktionen sind bewusst später vorgesehen:
 - Graph View
 
 Die Grenzen ändern nichts am zentralen V1-Prinzip: Markdown-Dateien bleiben die primäre und portable Datenquelle.
+
+## Gelegentliche lokale Windows-Prüfung
+
+Nach größeren Änderungen sowie nach Änderungen am Programmstart, an Dialogen,
+am Editor oder am Speichern die oben aufgeführten Build- und Harness-Befehle
+auch lokal ausführen. Zusätzlich einen kurzen Bedienungstest mit einem
+Test-Vault durchführen. Die Windows-CI ersetzt diesen manuellen Test auf dem
+eigenen Rechner nicht.
+
+Für die Startargumente im Repository-Root nach einem Release-Build:
+
+```powershell
+dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj --configuration Release --no-build -- ".\sample-vault"
+dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj --configuration Release --no-build -- ".\sample-vault\01_Projekte\Projektplan.md"
+```

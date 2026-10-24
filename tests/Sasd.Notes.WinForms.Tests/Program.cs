@@ -1,10 +1,12 @@
 using System.Diagnostics;
 using Sasd.Notes.App.WinForms;
 using Sasd.Notes.Application.Interfaces;
+using Sasd.Notes.Application.Models;
 using Sasd.Notes.Application.Services;
 using Sasd.Notes.Domain.Models;
 using Sasd.Notes.Domain.Services;
 using Sasd.Notes.Infrastructure.Repositories;
+using Sasd.Notes.Infrastructure.Services;
 
 namespace Sasd.Notes.WinForms.Tests;
 
@@ -44,7 +46,9 @@ internal static class Program
             Require(form.ConfirmationCount == 2, "Der genehmigte zweite Schließvorgang darf nicht erneut nachfragen.");
 
             RunVaultLoadingTest();
-            Console.WriteLine("Alle WinForms-Schließ- und Vault-Ladeprüfungen wurden erfolgreich ausgeführt.");
+            RunStartupTargetTests();
+            RunDelayedSettingsStartupTest();
+            Console.WriteLine("Alle WinForms-Schließ-, Vault-Lade- und Startzielprüfungen wurden erfolgreich ausgeführt.");
             return 0;
         }
         catch (Exception exception)
@@ -85,6 +89,105 @@ internal static class Program
         form.Close();
         PumpUntil(() => form.IsDisposed);
         Require(form.ConfirmationCount == 2, "Nach dem Laden muss Schließen wieder über die normale Bestätigung laufen.");
+    }
+
+    /// <summary>
+    /// Prüft Ordner-, Datei- und Standardstart mit realen Markdown-Dateien und dem produktiven Fenster-Ladeablauf.
+    /// </summary>
+    private static void RunStartupTargetTests()
+    {
+        string temporaryRoot = Path.Combine(Path.GetTempPath(), "sasd-winforms-startup-" + Guid.NewGuid().ToString("N"));
+        string requestedVault = Path.Combine(temporaryRoot, "Startordner Ω");
+        string rememberedVault = Path.Combine(temporaryRoot, "Gemerkter Vault");
+        Directory.CreateDirectory(requestedVault);
+        Directory.CreateDirectory(rememberedVault);
+        string notePath = Path.Combine(requestedVault, "Start Notiz 😀.md");
+        const string expectedContent = "# Gewählte Startnotiz 😀";
+        try
+        {
+            File.WriteAllText(notePath, expectedContent);
+            File.WriteAllText(Path.Combine(rememberedVault, "Alt.md"), "# Andere Notiz");
+
+            // Dieselbe Argument- und Zielauflösung wie im Composition Root; nur die Einstellungen sind im Speicher.
+            RunStartupCase(Array.Empty<string>(), temporaryRoot, rememberedVault, rememberedVault, null, null);
+            RunStartupCase(new[] { Path.GetFileName(requestedVault) }, temporaryRoot, rememberedVault, requestedVault, null, null);
+            RunStartupCase(new[] { Path.GetRelativePath(temporaryRoot, notePath) }, temporaryRoot,
+                rememberedVault, requestedVault, notePath, expectedContent);
+            Require(File.ReadAllText(notePath) == expectedContent, "Ein Dateistart darf den Notizinhalt nicht verändern.");
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Prüft einen Startfall einschließlich TreeView-Auswahl und Editorinhalt, ohne private Felder auszulesen.
+    /// </summary>
+    private static void RunStartupCase(
+        IReadOnlyList<string> arguments,
+        string workingDirectory,
+        string rememberedVault,
+        string expectedVault,
+        string? expectedNotePath,
+        string? expectedContent)
+    {
+        string? parsedPath = StartupArgumentsParser.Parse(arguments, workingDirectory);
+        StartupTarget? startupTarget = parsedPath is null ? null : new FileSystemStartupTargetResolver().Resolve(parsedPath);
+        var parser = new WikiLinkParser();
+        var resolver = new LinkResolver();
+        var workspace = new NotesWorkspaceService(
+            new FileSystemVaultRepository(parser), new InMemorySettingsRepository(rememberedVault),
+            parser, new MarkdownOutlineParser(), resolver, new SearchService(), new BacklinkService(resolver));
+        using var form = new VaultLoadTestForm(workspace, startupTarget);
+        RichTextBox editor = form.Controls.Find("richTextBoxEditor", searchAllChildren: true).OfType<RichTextBox>().Single();
+        TreeView tree = form.Controls.Find("treeViewVault", searchAllChildren: true).OfType<TreeView>().Single();
+        form.Show();
+
+        PumpUntil(() => form.Enabled && workspace.CurrentVault?.RootPath == expectedVault &&
+            (expectedNotePath is null || (tree.SelectedNode?.Tag as VaultTreeItem)?.FullPath == expectedNotePath));
+        Require(workspace.CurrentVault?.RootPath == expectedVault, "Der Programmstart muss den erwarteten Vault aktivieren.");
+        Require(workspace.GetLastOpenedVaultPath() == expectedVault, "Der erfolgreich geöffnete Start-Vault muss als zuletzt verwendet gelten.");
+        if (expectedNotePath is null)
+        {
+            Require(editor.TextLength == 0, "Ein Ordnerstart darf keine beliebige Notiz automatisch öffnen.");
+        }
+        else
+        {
+            Require(editor.Text == expectedContent, "Beim Dateistart muss die angeforderte Notiz im Editor stehen.");
+            Require((tree.SelectedNode?.Tag as VaultTreeItem)?.FullPath == expectedNotePath,
+                "Beim Dateistart muss der richtige Dateiknoten im Baum ausgewählt sein.");
+            Require(workspace.FindNoteByFullPath(expectedNotePath)?.IsDirty == false,
+                "Eine nur beim Start geöffnete Datei darf nicht dirty werden.");
+        }
+
+        form.Close();
+        PumpUntil(() => form.IsDisposed);
+    }
+
+    /// <summary>
+    /// Verhindert Schließen bereits während der Einstellungen-Initialisierung, noch vor einem möglichen Vault-Scan.
+    /// </summary>
+    private static void RunDelayedSettingsStartupTest()
+    {
+        var settings = new DelayedStartupSettingsRepository();
+        var parser = new WikiLinkParser();
+        var resolver = new LinkResolver();
+        var workspace = new NotesWorkspaceService(
+            new FileSystemVaultRepository(parser), settings, parser, new MarkdownOutlineParser(),
+            resolver, new SearchService(), new BacklinkService(resolver));
+        using var form = new VaultLoadTestForm(workspace);
+        form.Show();
+        Require(!form.Enabled, "Während der Einstellungen-Initialisierung muss die Bedienung gesperrt sein.");
+        form.Close();
+        Require(!form.IsDisposed && form.Visible, "Das Fenster darf nicht vor dem asynchronen Startabschluss geschlossen werden.");
+
+        settings.Completion.SetResult(new AppSettings());
+        PumpUntil(() => form.Enabled);
+        Require(workspace.CurrentVault is null, "Ohne Startziel und gemerkten Vault muss die Anwendung leer starten.");
+        Require(!form.UseWaitCursor, "Nach dem Programmstart muss der Wartecursor zurückgesetzt sein.");
+        form.Close();
+        PumpUntil(() => form.IsDisposed);
     }
 
     /// <summary>
@@ -160,8 +263,10 @@ internal static class Program
     private sealed class VaultLoadTestForm : MainForm
     {
         /// <summary>Initialisiert das Fenster mit dem kontrollierten Test-Workspace.</summary>
-        public VaultLoadTestForm(NotesWorkspaceService workspace)
-            : base(workspace, new EditorFormattingService())
+        /// <param name="workspace">Workspace mit realer oder kontrollierter Infrastruktur.</param>
+        /// <param name="startupTarget">Optionales explizites Startziel.</param>
+        public VaultLoadTestForm(NotesWorkspaceService workspace, StartupTarget? startupTarget = null)
+            : base(workspace, new EditorFormattingService(), startupTarget)
         {
             ShowInTaskbar = false;
         }
@@ -212,6 +317,19 @@ internal static class Program
         /// <inheritdoc />
         public Task<string> CreateFolderAsync(string vaultPath, string? relativeParentPath, string folderName, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// Verzögert ausschließlich das Lesen der Starteinstellungen, ohne Benutzerdaten anzufassen.
+    /// </summary>
+    private sealed class DelayedStartupSettingsRepository : ISettingsRepository
+    {
+        /// <summary>Kontrollierter Abschluss der Initialisierung.</summary>
+        public TaskCompletionSource<AppSettings> Completion { get; } = new();
+        /// <inheritdoc />
+        public Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default) => Completion.Task;
+        /// <inheritdoc />
+        public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class InMemorySettingsRepository : ISettingsRepository

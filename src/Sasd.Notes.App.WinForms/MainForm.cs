@@ -1,4 +1,5 @@
 using Sasd.Notes.App.WinForms.Dialogs;
+using Sasd.Notes.Application.Models;
 using Sasd.Notes.Application.Services;
 using Sasd.Notes.Domain.Models;
 
@@ -11,6 +12,7 @@ public partial class MainForm : Form
 {
     private readonly NotesWorkspaceService _workspaceService;
     private readonly EditorFormattingService _editorFormattingService;
+    private readonly StartupTarget? _startupTarget;
     private NoteDocument? _currentNote;
     private bool _suppressEditorEvents;
     private readonly System.Windows.Forms.Timer _externalChangeTimer;
@@ -20,14 +22,22 @@ public partial class MainForm : Form
     private bool _closeConfirmationInProgress;
     private bool _closeApproved;
     private bool _vaultOpenInProgress;
+    private bool _startupInProgress;
 
     /// <summary>
     /// Initialisiert eine neue Instanz der <see cref="MainForm"/>-Klasse.
     /// </summary>
-    public MainForm(NotesWorkspaceService workspaceService, EditorFormattingService editorFormattingService)
+    /// <param name="workspaceService">Dienst für den aktiven Vault und seine Notizen.</param>
+    /// <param name="editorFormattingService">UI-unabhängige Markdown-Formatierung.</param>
+    /// <param name="startupTarget">Explizites Startziel oder <see langword="null"/> für das bisherige Startverhalten.</param>
+    public MainForm(
+        NotesWorkspaceService workspaceService,
+        EditorFormattingService editorFormattingService,
+        StartupTarget? startupTarget = null)
     {
         _workspaceService = workspaceService;
         _editorFormattingService = editorFormattingService;
+        _startupTarget = startupTarget;
         InitializeComponent();
         AddAdditionalFormattingButtons();
 
@@ -90,10 +100,32 @@ public partial class MainForm : Form
     /// </summary>
     private async void MainForm_Load(object? sender, EventArgs e)
     {
+        // Auch das asynchrone Laden der Einstellungen gehört zum geschützten Programmstart.
+        // Dadurch kann kein verspäteter Startabschluss auf ein bereits geschlossenes Fenster zugreifen.
+        _startupInProgress = true;
+        bool wasEnabled = Enabled;
+        bool previousWaitCursor = UseWaitCursor;
+        Enabled = false;
+        UseWaitCursor = true;
         try
         {
             await _workspaceService.InitializeAsync();
             RefreshRecentFoldersMenu();
+
+            if (_startupTarget is not null)
+            {
+                // Das explizite Argument hat Vorrang vor dem zuletzt verwendeten Vault.
+                // Der normale Öffnungsweg übernimmt Fehlerbehandlung, Recent Folders und den Dateibaum.
+                bool opened = await OpenVaultAsync(_startupTarget.VaultPath);
+                if (opened && _startupTarget.NotePath is not null)
+                {
+                    NoteDocument startupNote = _workspaceService.FindNoteByFullPath(_startupTarget.NotePath)
+                        ?? throw new FileNotFoundException(
+                            "Die angeforderte Markdown-Datei ist im geöffneten Vault nicht mehr verfügbar.", _startupTarget.NotePath);
+                    OpenNoteInEditor(startupNote);
+                }
+                return;
+            }
 
             string? lastOpenedVaultPath = _workspaceService.GetLastOpenedVaultPath();
             if (!string.IsNullOrWhiteSpace(lastOpenedVaultPath) && _workspaceService.VaultExists(lastOpenedVaultPath))
@@ -108,6 +140,15 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             ShowError("Die Anwendung konnte nicht initialisiert werden.", ex);
+        }
+        finally
+        {
+            _startupInProgress = false;
+            if (!IsDisposed && !Disposing)
+            {
+                Enabled = wasEnabled;
+                UseWaitCursor = previousWaitCursor;
+            }
         }
     }
 
@@ -474,11 +515,11 @@ public partial class MainForm : Form
     /// </summary>
     private async void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
-        if (_vaultOpenInProgress)
+        if (_startupInProgress || _vaultOpenInProgress)
         {
             // Ein noch laufender Ladeabschluss darf nicht auf bereits freigegebene Controls zugreifen.
             e.Cancel = true;
-            SetStatus("Bitte warten Sie, bis der Vault vollständig geöffnet ist.");
+            SetStatus("Bitte warten Sie, bis der Ladevorgang abgeschlossen ist.");
             return;
         }
 
@@ -542,11 +583,13 @@ public partial class MainForm : Form
     /// <summary>
     /// Öffnet einen Vault, lädt alle Notizen und aktualisiert die Oberfläche.
     /// </summary>
-    private async Task OpenVaultAsync(string vaultPath)
+    /// <param name="vaultPath">Pfad des gewünschten Vaults.</param>
+    /// <returns>Ob der Vault erfolgreich geöffnet wurde.</returns>
+    private async Task<bool> OpenVaultAsync(string vaultPath)
     {
         if (_vaultOpenInProgress || _closeConfirmationInProgress || _closeApproved)
         {
-            return;
+            return false;
         }
 
         // Die Sperre beginnt vor einer eventuell asynchronen Speicherbestätigung, damit kein zweiter Wechsel startet.
@@ -557,7 +600,7 @@ public partial class MainForm : Form
         {
             if (!await ConfirmSaveChangesIfRequiredAsync())
             {
-                return;
+                return false;
             }
 
             Enabled = false;
@@ -570,10 +613,12 @@ public partial class MainForm : Form
             ClearEditor();
             labelCurrentDocument.Text = "Keine Notiz geöffnet";
             SetStatus($"Vault geöffnet: {vaultInfo.DisplayName}");
+            return true;
         }
         catch (Exception ex)
         {
             ShowError("Der Vault konnte nicht geöffnet werden.", ex);
+            return false;
         }
         finally
         {

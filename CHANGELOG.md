@@ -2,6 +2,9 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Optionaler Start mit einem Ordner oder einer Markdown-Datei ergänzt. Relative Pfade, Leerzeichen und Unicode werden unterstützt; explizite Ziele haben Vorrang vor dem gemerkten Vault. Der Dateistart wählt die Notiz im Editor und Baum. Ungültige Argumente werden vor dem Fensterstart abgewiesen. Kern- und Windows-Starttests sowie Anforderung FA-21 und Bedienungsdokumentation ergänzt.
+- Auch die asynchrone Einstellungen-Initialisierung beim Programmstart schützt jetzt vor vorzeitigem Schließen des Fensters.
+
 - Einzeilige Inline-Code-Spans werden bei Wiki-Links, Navigation und Backlinks ausgelassen. Gleich lange Backtick-Gruppen, Escapes, offene Marker und überlappende Linksyntax sind getestet. Originalpositionen bleiben erhalten; Mehrzeilen-Spans bleiben ausdrücklich außerhalb dieser V1-Teilmenge.
 
 - Gemeinsame Erkennung eingefasster Markdown-Codeblöcke für Wiki-Links und Outline ergänzt. Beispiele erzeugen keine Backlinks oder fehlenden Linkziele mehr. Zeilengrenzen der Parser korrigiert; Unicode-, LF-/CRLF-, Marker- und Workspace-Regressionstests hinzugefügt.

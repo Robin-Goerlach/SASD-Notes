@@ -26,6 +26,34 @@ Notizen können wie normale Textdateien bearbeitet, in thematischen Ordnern abge
 3. Die Anwendung scannt alle Markdown-Dateien
 4. Links im Navigationsbereich erscheinen Ordner und Notizen
 
+### Optionales Startziel beim Programmaufruf
+
+Beim Start kann ein vorhandener Ordner oder eine vorhandene Markdown-Datei
+angegeben werden. Pfade mit Leerzeichen müssen in Anführungszeichen stehen.
+
+```powershell
+.\Sasd.Notes.App.WinForms.exe "C:\Notes\Entwicklung"
+.\Sasd.Notes.App.WinForms.exe "C:\Notes\Entwicklung\Projektplan.md"
+```
+
+- Ein Ordner wird direkt als Vault geöffnet.
+- Bei einer Datei wird deren direkter Elternordner der Vault; die Datei wird
+  anschließend im Editor und Dateibaum ausgewählt.
+- Relative Pfade beziehen sich auf das Arbeitsverzeichnis des Aufrufs.
+- Ohne Argument wird wie bisher der zuletzt verwendete vorhandene Vault geöffnet.
+- Ein ausdrücklich angegebenes Startziel hat Vorrang vor dem gemerkten Vault.
+- Fehlende Ziele, mehrere Argumente und andere Dateitypen werden gemeldet.
+  Es wird keine Datei angelegt und kein anderer Vault als Ersatz geöffnet.
+- Während der Startinitialisierung ist die Bedienung kurz gesperrt. Danach
+  stehen die normalen Befehle zur Verfügung.
+
+Im Repository können die Beispiele ohne Publish getestet werden:
+
+```powershell
+dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj -- ".\sample-vault"
+dotnet run --project .\src\Sasd.Notes.App.WinForms\Sasd.Notes.App.WinForms.csproj -- ".\sample-vault\01_Projekte\Projektplan.md"
+```
+
 ### Hinweise
 
 - Der ausgewählte Ordner ist der aktive Arbeitsbereich.
