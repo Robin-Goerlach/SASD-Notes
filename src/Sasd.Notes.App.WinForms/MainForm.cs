@@ -19,6 +19,7 @@ public partial class MainForm : Form
     private readonly ToolStripMenuItem _newFolderMenuItem;
     private readonly ToolStripMenuItem _reloadNoteMenuItem;
     private string? _externalChangeWarningPath;
+    private ExternalChangeStatus? _externalChangeWarningStatus;
     private bool _closeConfirmationInProgress;
     private bool _closeApproved;
     private bool _vaultOpenInProgress;
@@ -786,6 +787,7 @@ public partial class MainForm : Form
     {
         _currentNote = note;
         _externalChangeWarningPath = null;
+        _externalChangeWarningStatus = null;
         _suppressEditorEvents = true;
         richTextBoxEditor.Text = note.Content;
         _suppressEditorEvents = false;
@@ -1035,29 +1037,45 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Prüft regelmäßig, ob die aktuell geladenen Notizen extern geändert wurden.
+    /// Prüft regelmäßig den externen Dateistand der geöffneten Notiz.
     /// </summary>
     private void externalChangeTimer_Tick(object? sender, EventArgs e)
     {
-        IReadOnlyList<NoteDocument> changedNotes = _workspaceService.GetExternallyChangedNotes();
-        NoteDocument? currentChangedNote = _currentNote is null
-            ? null
-            : changedNotes.FirstOrDefault(note =>
-                string.Equals(note.FullPath, _currentNote.FullPath, StringComparison.OrdinalIgnoreCase));
-
-        if (currentChangedNote is null)
+        if (_currentNote is null || _startupInProgress || _vaultOpenInProgress || _closeConfirmationInProgress)
         {
             return;
         }
 
-        // Die Meldung wird pro Datei nur einmal angezeigt, damit der Timer keine Statusflut erzeugt.
-        if (string.Equals(_externalChangeWarningPath, currentChangedNote.FullPath, StringComparison.OrdinalIgnoreCase))
+        // Nur die geöffnete Notiz benötigt eine Warnung. Fehler anderer Dateien beeinflussen diese Prüfung nicht.
+        ExternalChangeStatus status = _workspaceService.CheckExternalChange(_currentNote);
+        if (status == ExternalChangeStatus.NotChecked)
         {
             return;
         }
 
-        _externalChangeWarningPath = currentChangedNote.FullPath;
-        SetStatus($"Warnung: Datei extern geändert oder gelöscht: {currentChangedNote.RelativePath}");
+        if (status == ExternalChangeStatus.Unchanged)
+        {
+            if (_externalChangeWarningStatus == ExternalChangeStatus.Unavailable)
+            {
+                SetStatus($"Dateiprüfung wieder möglich: {_currentNote.RelativePath}");
+            }
+            _externalChangeWarningPath = null;
+            _externalChangeWarningStatus = null;
+            return;
+        }
+
+        // Pro Datei und Zustand nur einmal melden; der nächste Tick versucht die Prüfung weiterhin erneut.
+        if (string.Equals(_externalChangeWarningPath, _currentNote.FullPath, StringComparison.OrdinalIgnoreCase)
+            && _externalChangeWarningStatus == status)
+        {
+            return;
+        }
+
+        _externalChangeWarningPath = _currentNote.FullPath;
+        _externalChangeWarningStatus = status;
+        SetStatus(status == ExternalChangeStatus.Unavailable
+            ? $"Warnung: Externe Änderungen derzeit nicht prüfbar: {_currentNote.RelativePath}"
+            : $"Warnung: Datei extern geändert oder gelöscht: {_currentNote.RelativePath}");
     }
 
     /// <summary>

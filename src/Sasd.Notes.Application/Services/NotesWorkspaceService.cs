@@ -1,3 +1,4 @@
+using Sasd.Notes.Application.Models;
 using Sasd.Notes.Application.Interfaces;
 using Sasd.Notes.Domain.Interfaces;
 using Sasd.Notes.Domain.Models;
@@ -415,6 +416,39 @@ public sealed class NotesWorkspaceService
         return currentSnapshot.Links
             .Where(link => _linkResolver.Resolve(link.Target, notes) is null)
             .ToList();
+    }
+
+    /// <summary>
+    /// Prüft genau eine geladene Notiz, ohne ihren Inhalt oder Speicherzustand zu verändern.
+    /// </summary>
+    /// <param name="note">Das im Workspace geführte Notizmodell.</param>
+    /// <returns>Prüfergebnis einschließlich vorübergehender Zugriffsfehler oder zurückgestellter Prüfung.</returns>
+    /// <exception cref="ArgumentNullException">Das Notizmodell fehlt.</exception>
+    public ExternalChangeStatus CheckExternalChange(NoteDocument note)
+    {
+        ArgumentNullException.ThrowIfNull(note);
+
+        // Während Übergängen und eigener Speicherung ist kein stabiler Vergleich mit dem Ladezeitpunkt möglich.
+        if (_isOpeningVault || _notesBeingSaved.Contains(note) || !_loadedNotes.Contains(note))
+        {
+            return ExternalChangeStatus.NotChecked;
+        }
+
+        try
+        {
+            return _vaultRepository.HasChangedSinceLoaded(note)
+                ? ExternalChangeStatus.Changed
+                : ExternalChangeStatus.Unchanged;
+        }
+        catch (IOException)
+        {
+            // Eine fehlgeschlagene Prüfung darf weder als unverändert gelten noch den UI-Timer beenden.
+            return ExternalChangeStatus.Unavailable;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return ExternalChangeStatus.Unavailable;
+        }
     }
 
     /// <summary>

@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Periodische Dateiprüfung auf die geöffnete Notiz begrenzt und gegen E/A- sowie Zugriffsfehler abgesichert. Vorübergehend nicht prüfbare Dateien werden ausdrücklich gemeldet und erneut geprüft; Entwurf und Dirty-State bleiben erhalten. Workspace- und echte Windows-Timertests ergänzt.
+
 - Gemeinsame Positionszuordnung zwischen Notiz- und Editortext ergänzt. Suche, Outline und Wiki-Link-Navigation berücksichtigen unterschiedliche CRLF-/LF-Zeilenenden. Ungültige Bereiche werden abgewiesen. Kern- und RichTextBox-Regressionstests sowie Verhaltensspezifikation ergänzt.
 
 - Suchtreffer speichern ihre tatsächliche UTF-16-Trefferlänge. Die Editor-Markierung verwendet diese Länge statt des veränderlichen Suchfelds; Rand-Leerzeichen verlängern die Auswahl nicht mehr. Tests für Titel-, Unicode- und LF-/CRLF-Treffer ergänzt.

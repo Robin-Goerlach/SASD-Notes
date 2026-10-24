@@ -49,6 +49,7 @@ internal static class Program
             RunStartupTargetTests();
             RunTextPositionMappingTest();
             RunDelayedSettingsStartupTest();
+            RunExternalChangeTimerTest();
             Console.WriteLine("Alle WinForms-Schließ-, Vault-Lade- und Startzielprüfungen wurden erfolgreich ausgeführt.");
             return 0;
         }
@@ -214,6 +215,46 @@ internal static class Program
     }
 
     /// <summary>
+    /// Prüft den echten Windows-Timer mit Zugriffsfehler, erneuter Prüfung und anschließender Erholung.
+    /// </summary>
+    private static void RunExternalChangeTimerTest()
+    {
+        string vaultPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "sasd-timer-tests"));
+        var note = new NoteDocument
+        {
+            Id = "Notiz", Title = "Notiz", RelativePath = "Notiz.md",
+            FullPath = Path.Combine(vaultPath, "Notiz.md"), Content = "Entwurf 😀"
+        };
+        var repository = new LoadingVaultRepository { CheckError = new IOException("Simulierter Zugriffsfehler") };
+        repository.Completion.SetResult(new[] { note });
+        var parser = new WikiLinkParser();
+        var resolver = new LinkResolver();
+        var workspace = new NotesWorkspaceService(
+            repository, new InMemorySettingsRepository(), parser, new MarkdownOutlineParser(),
+            resolver, new SearchService(), new BacklinkService(resolver));
+        using var form = new VaultLoadTestForm(workspace, new StartupTarget { VaultPath = vaultPath, NotePath = note.FullPath });
+        form.Show();
+        PumpUntil(() => form.Enabled);
+        RichTextBox editor = form.Controls.Find("richTextBoxEditor", true).OfType<RichTextBox>().Single();
+        StatusStrip status = form.Controls.OfType<StatusStrip>().Single();
+
+        bool HasStatus(string text) => status.Items.OfType<ToolStripStatusLabel>()
+            .Any(item => item.Text?.Contains(text, StringComparison.Ordinal) == true);
+
+        // Das produktive Tick-Ereignis läuft über die Windows-Nachrichtenpumpe, ohne private Handler aufzurufen.
+        PumpUntil(() => repository.CheckCount >= 2 && HasStatus("derzeit nicht prüfbar"));
+        Require(form.Visible && editor.Text == note.Content && !note.IsDirty,
+            "Ein Dateiprüffehler darf das Fenster nicht schließen oder den Editor verändern.");
+        repository.CheckError = null;
+        PumpUntil(() => HasStatus("Dateiprüfung wieder möglich"));
+        repository.ExternalChange = true;
+        PumpUntil(() => HasStatus("extern geändert oder gelöscht"));
+        Require(editor.Text == "Entwurf 😀", "Auch die Änderungswarnung darf keine Datei automatisch neu laden.");
+        form.Close();
+        PumpUntil(() => form.IsDisposed);
+    }
+
+    /// <summary>
     /// Verarbeitet Windows-Nachrichten bis zur erwarteten Zustandsänderung, mit begrenzter Laufzeit.
     /// </summary>
     private static void PumpUntil(Func<bool> condition)
@@ -318,7 +359,21 @@ internal static class Program
         /// <inheritdoc />
         public bool VaultExists(string vaultPath) => true;
         /// <inheritdoc />
-        public bool HasChangedSinceLoaded(NoteDocument note) => false;
+        public bool HasChangedSinceLoaded(NoteDocument note)
+        {
+            CheckCount++;
+            if (CheckError is not null)
+            {
+                throw CheckError;
+            }
+            return ExternalChange;
+        }
+        /// <summary>Kontrollierter Dateizugriffsfehler.</summary>
+        public Exception? CheckError { get; set; }
+        /// <summary>Kontrollierte externe Änderung.</summary>
+        public bool ExternalChange { get; set; }
+        /// <summary>Anzahl produktiv ausgelöster Dateiprüfungen.</summary>
+        public int CheckCount { get; private set; }
         /// <inheritdoc />
         public IReadOnlyList<string> LoadFolderPaths(string vaultPath) => Array.Empty<string>();
         /// <inheritdoc />
