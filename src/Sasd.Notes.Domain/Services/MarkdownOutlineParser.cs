@@ -13,7 +13,13 @@ public sealed class MarkdownOutlineParser : IOutlineParser
     /// Regulärer Ausdruck zur Erkennung von Markdown-ATX-Überschriften.
     /// </summary>
     private static readonly Regex HeadingRegex =
-        new(@"^(#{1,6})[ \t]+([^\r\n]+?)[ \t]*\r?$", RegexOptions.Compiled | RegexOptions.Multiline);
+        new(@"^ {0,3}(#{1,6})[ \t]+([^\r\n]+?)[ \t]*\r?$", RegexOptions.Compiled | RegexOptions.Multiline);
+
+    /// <summary>
+    /// Entfernt optionale Abschlussrauten nur als eigene, durch Leerraum getrennte Gruppe.
+    /// </summary>
+    private static readonly Regex ClosingHashesRegex =
+        new(@"(?:^|[ \t]+)#+[ \t]*$", RegexOptions.Compiled);
 
     /// <inheritdoc />
     public IReadOnlyList<OutlineItem> Parse(string markdownContent)
@@ -36,7 +42,8 @@ public sealed class MarkdownOutlineParser : IOutlineParser
                 continue;
             }
 
-            string headingText = match.Groups[2].Value.Trim();
+            // Abschlussrauten gehören zur ATX-Syntax; eingebettete Rauten wie in „C#“ bleiben Titeltext.
+            string headingText = ClosingHashesRegex.Replace(match.Groups[2].Value, string.Empty).Trim();
             if (headingText.Length == 0)
             {
                 continue;

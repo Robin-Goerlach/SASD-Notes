@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Outline erkennt ATX-Überschriften mit bis zu drei führenden Leerzeichen und entfernt optionale Abschlussrauten aus dem Anzeigetitel. Originalpositionen bleiben erhalten; Unicode-, LF-/CRLF- und Codeblock-Regressionstests sowie Spezifikation ergänzt.
+
 - Periodische Dateiprüfung auf die geöffnete Notiz begrenzt und gegen E/A- sowie Zugriffsfehler abgesichert. Vorübergehend nicht prüfbare Dateien werden ausdrücklich gemeldet und erneut geprüft; Entwurf und Dirty-State bleiben erhalten. Workspace- und echte Windows-Timertests ergänzt.
 
 - Gemeinsame Positionszuordnung zwischen Notiz- und Editortext ergänzt. Suche, Outline und Wiki-Link-Navigation berücksichtigen unterschiedliche CRLF-/LF-Zeilenenden. Ungültige Bereiche werden abgewiesen. Kern- und RichTextBox-Regressionstests sowie Verhaltensspezifikation ergänzt.

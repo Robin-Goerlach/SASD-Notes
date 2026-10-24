@@ -21,6 +21,7 @@ internal static class Program
             RunFileNameHelperTests();
             RunWikiLinkParserTests();
             RunOutlineParserTests();
+            OutlineSyntaxTests.Run();
             MarkdownCodeBlockTests.Run();
             MarkdownInlineCodeTests.Run();
             EditorTextPositionMapperTests.Run();
