@@ -23,6 +23,15 @@ Jeder Inhaltstreffer speichert die ursprüngliche UTF-16-Fundposition und die
 Länge des tatsächlich gesuchten, bereits getrimmten Begriffs. Reine Titel-
 oder Pfadtreffer haben Position -1 und Länge 0. Die Oberfläche verwendet
 diese gespeicherte Länge für die Auswahl, nicht den späteren Inhalt des
-Suchfelds. Die Zuordnung zum Editortext berücksichtigt unterschiedliche Zeilenenden
-(siehe editor-text-positions.md). Ungültige Bereiche werden nicht markiert. Nachträgliche Inhaltsänderungen können Treffer
-weiterhin veralten lassen und erfordern eine erneute Suche.
+Suchfelds. Zusätzlich wird der exakt gefundene Originaltext gespeichert.
+
+Vor der Navigation wird dieser Text an der ursprünglichen Position bestätigt.
+Nach zwischenzeitlichen Bearbeitungen wird das nächstgelegene Vorkommen mit
+ordinalem Vergleich ohne Unterscheidung der Groß-/Kleinschreibung gesucht. Bei
+gleicher Entfernung gewinnt die frühere Position. Ist der Treffer verschwunden
+oder sind die Trefferdaten inkonsistent, öffnet die Oberfläche weiterhin die
+Notiz, markiert aber keinen falschen Bereich und fordert zu einer neuen Suche auf.
+
+Die anschließende Zuordnung zum Editortext berücksichtigt unterschiedliche
+Zeilenenden (siehe editor-text-positions.md). Trefferdaten und Lokalisierung
+verwenden UTF-16-Positionen.

@@ -58,7 +58,10 @@ public sealed class SearchService
                 PreviewText = BuildPreview(note.Content, matchIndex, trimmedQuery.Length),
                 Score = score,
                 MatchIndex = matchIndex,
-                MatchLength = matchIndex >= 0 ? trimmedQuery.Length : 0
+                MatchLength = matchIndex >= 0 ? trimmedQuery.Length : 0,
+                MatchedText = matchIndex >= 0
+                    ? note.Content.Substring(matchIndex, trimmedQuery.Length)
+                    : string.Empty
             });
         }
 

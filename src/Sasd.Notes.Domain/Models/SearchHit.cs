@@ -36,6 +36,11 @@ public sealed class SearchHit
     public int MatchLength { get; init; }
 
     /// <summary>
+    /// Exakter Inhaltstreffer in der ursprünglichen Groß-/Kleinschreibung; leer bei Titel- oder Pfadtreffern.
+    /// </summary>
+    public string MatchedText { get; init; } = string.Empty;
+
+    /// <summary>
     /// Liefert eine lesbare Darstellung für Listen in der Oberfläche.
     /// </summary>
     public override string ToString()

@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Navigation aus veralteten Suchergebnissen abgesichert. Der tatsächliche Inhaltstreffer wird gespeichert, vor der Auswahl bestätigt und nach Bearbeitungen am nächstgelegenen Vorkommen neu lokalisiert. Entfernte oder inkonsistente Treffer werden nicht falsch markiert. Unicode-, Mehrfachtreffer- und Verschiebungstests sowie Suchspezifikation ergänzt.
+
 - Recent-Folder-Pfade syntaktisch normalisiert, dedupliziert und auf zehn Einträge begrenzt. Relative oder ungültige Altwerte werden ignoriert, nicht erreichbare absolute Vaults bleiben erhalten. Laufwerkswurzeln und Anzeigenamen sowie unabhängige Rückgabeschnappschüsse sind durch Tests abgesichert.
 
 - JSON-Einstellungen gegen null-Einträge und leere Recent-Folder-Pfade abgesichert. Einstellungszugriff isoliert testbar gemacht; Lesen erzeugt keine Verzeichnisse. Abbruch wird vor Seiteneffekten und Dateiersetzung geprüft. Datei-, Unicode- und Abbruchtests ergänzt.

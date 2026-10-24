@@ -404,18 +404,37 @@ public partial class MainForm : Form
             return;
         }
 
-        OpenNoteInEditor(targetNote);
+        // Eine seit der Suche bearbeitete Notiz kann den Treffer verschoben oder entfernt haben.
+        // Die Application-Logik bestätigt deshalb den Treffertext, bevor die UI eine Auswahl setzt.
+        var contentSelection = selectedHit.MatchLength > 0
+            ? SearchHitLocator.Locate(selectedHit, targetNote.Content)
+            : null;
 
-        // Parser und Suche verwenden den Originaltext; RichTextBox kann dessen Zeilenenden normalisieren.
-        var selection = EditorTextPositionMapper.Map(
-            targetNote.Content, richTextBoxEditor.Text, selectedHit.MatchIndex, selectedHit.MatchLength);
-        if (selectedHit.MatchLength > 0 && selection is { } mapped)
+        OpenNoteInEditor(targetNote);
+        if (selectedHit.MatchLength <= 0)
         {
-            richTextBoxEditor.Focus();
-            richTextBoxEditor.SelectionStart = mapped.Start;
-            richTextBoxEditor.SelectionLength = mapped.Length;
-            richTextBoxEditor.ScrollToCaret();
+            return;
         }
+
+        if (contentSelection is not { } currentRange)
+        {
+            SetStatus("Der Suchtreffer ist im aktuellen Inhalt nicht mehr vorhanden. Bitte suchen Sie erneut.");
+            return;
+        }
+
+        // Suche und Locator verwenden den Originaltext; RichTextBox kann dessen Zeilenenden normalisieren.
+        var selection = EditorTextPositionMapper.Map(
+            targetNote.Content, richTextBoxEditor.Text, currentRange.Start, currentRange.Length);
+        if (selection is not { } mapped)
+        {
+            SetStatus("Der Suchtreffer lässt sich nicht sicher auf den Editorinhalt abbilden.");
+            return;
+        }
+
+        richTextBoxEditor.Focus();
+        richTextBoxEditor.SelectionStart = mapped.Start;
+        richTextBoxEditor.SelectionLength = mapped.Length;
+        richTextBoxEditor.ScrollToCaret();
     }
 
     /// <summary>

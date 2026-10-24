@@ -27,6 +27,7 @@ internal static class Program
             EditorTextPositionMapperTests.Run();
             RunSearchServiceTests();
             SearchPreviewTests.Run();
+            SearchHitLocatorTests.Run();
             RunDisplayFormattingTests();
             RunEditorFormattingTests();
             RunFormatterLineBoundaryTests();
