@@ -301,6 +301,40 @@ internal static class Program
         IReadOnlyList<BacklinkInfo> backlinks = backlinkService.GetBacklinks(target, new[] { target, source });
         AssertEx.Equal(1, backlinks.Count, "BacklinkService sollte den Rückverweis finden.");
         AssertEx.Equal("Quelle.md", backlinks[0].SourceRelativePath, "Der Quellpfad des Backlinks sollte erhalten bleiben.");
+
+        // Wiederholte Ziele und Aliase gehören zu derselben Quelldatei. Codebeispiele zählen weiterhin nicht.
+        var parser = new WikiLinkParser();
+        source.Content = "[[Fehlt]] " + "`[[Ziel]]`" + " [[Ziel|Erster echter Link]] [[Ziel.md]]";
+        source.Links = parser.Parse(source.Content);
+        target.Content = "[[Ziel]]";
+        target.Links = parser.Parse(target.Content);
+        var secondSource = new NoteDocument
+        {
+            Id = "archiv-quelle",
+            Title = "Quelle",
+            FullPath = "C:/Vault/Archiv/Quelle.md",
+            RelativePath = "Archiv/Quelle.md",
+            Content = "[[Ziel]] [[Ziel|Noch einmal]]",
+            Links = parser.Parse("[[Ziel]] [[Ziel|Noch einmal]]")
+        };
+        NoteDocument[] repeatedSources = { target, source, secondSource, source };
+        IReadOnlyList<BacklinkInfo> grouped = backlinkService.GetBacklinks(target, repeatedSources);
+        AssertEx.Equal(2, grouped.Count, "Jede Quelldatei darf unabhängig von Linkzahl und doppelten Modelleingaben nur einmal erscheinen.");
+        AssertEx.Equal("Archiv/Quelle.md", grouped[0].SourceRelativePath,
+            "Gleichnamige Quellen in unterschiedlichen Ordnern müssen getrennt bleiben und nach Pfad sortiert werden.");
+        AssertEx.Equal("Quelle.md", grouped[1].SourceRelativePath, "Der zweite Quellpfad muss erhalten bleiben.");
+        AssertEx.Equal("[[Ziel|Erster echter Link]]", grouped[1].ContextSnippet,
+            "Der Kontext muss vom ersten echten Ziellink stammen, nicht vom Codebeispiel oder einem späteren Alias.");
+        IReadOnlyList<BacklinkInfo> reordered = backlinkService.GetBacklinks(target, repeatedSources.Reverse().ToArray());
+        AssertEx.Equal(2, reordered.Count, "Die Reihenfolge der Eingabe darf keine zusätzlichen Quellen erzeugen.");
+        AssertEx.Equal(grouped[0].SourceRelativePath, reordered[0].SourceRelativePath, "Die Pfadsortierung muss stabil bleiben.");
+
+        source.Links = parser.Parse("[[Fehlt]]");
+        AssertEx.Equal(1, backlinkService.GetBacklinks(target, repeatedSources).Count,
+            "Nach Entfernen der echten Links darf die Quelle bei der nächsten Berechnung nicht zurückbleiben.");
+        secondSource.Links = Array.Empty<WikiLink>();
+        AssertEx.Equal(0, backlinkService.GetBacklinks(target, repeatedSources).Count,
+            "Ohne fremde Ziellinks muss die Liste leer sein; Selbstverweise zählen nicht.");
     }
 
     private static async Task RunUnresolvedLinkTests()

@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Backlinks zeigen jede Quelldatei nur einmal, auch bei mehrfachen Links oder Aliasvarianten. Gleichnamige Quellen in verschiedenen Ordnern bleiben getrennt; der erste gültige Link liefert den Kontext. Regressionstests und Backlink-Spezifikation ergänzt.
+
 - Dirty-State wird anhand des tatsächlichen Textunterschieds ermittelt. Unveränderte Editorereignisse und die Rückkehr zum letzten Lade-/Speicherstand erzeugen keine unnötige Speicherabfrage. Regressionstests für Unicode, Zeilenumbrüche, leere Texte und asynchrone Speicherabschlüsse ergänzt.
 
 - Optionaler Start mit einem Ordner oder einer Markdown-Datei ergänzt. Relative Pfade, Leerzeichen und Unicode werden unterstützt; explizite Ziele haben Vorrang vor dem gemerkten Vault. Der Dateistart wählt die Notiz im Editor und Baum. Ungültige Argumente werden vor dem Fensterstart abgewiesen. Kern- und Windows-Starttests sowie Anforderung FA-21 und Bedienungsdokumentation ergänzt.

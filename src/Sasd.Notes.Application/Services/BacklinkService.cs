@@ -24,15 +24,19 @@ public sealed class BacklinkService
     /// </summary>
     /// <param name="targetNote">Zielnotiz, für die Rückverweise gesucht werden.</param>
     /// <param name="allNotes">Alle bekannten Notizen des aktuellen Vaults.</param>
-    /// <returns>Gefundene Rückverweise.</returns>
+    /// <returns>Ein Rückverweis je Quelldatei, sortiert nach relativem Pfad.</returns>
+    /// <remarks>Mehrere Links derselben Quelle werden zusammengefasst. Als Kontext dient ihr erster aufgelöster Ziellink.</remarks>
     public IReadOnlyList<BacklinkInfo> GetBacklinks(NoteDocument targetNote, IReadOnlyList<NoteDocument> allNotes)
     {
         var result = new List<BacklinkInfo>();
+        var includedSourcePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (NoteDocument note in allNotes)
         {
-            // Die Zielnotiz soll nicht auf sich selbst als Backlink erscheinen.
-            if (string.Equals(note.FullPath, targetNote.FullPath, StringComparison.OrdinalIgnoreCase))
+            // Die Liste zeigt Quelldateien, nicht einzelne Linkvorkommen. Selbstverweise und
+            // bereits aufgenommene Quellen dürfen deshalb keinen weiteren Navigationseintrag erzeugen.
+            if (string.Equals(note.FullPath, targetNote.FullPath, StringComparison.OrdinalIgnoreCase) ||
+                includedSourcePaths.Contains(note.FullPath))
             {
                 continue;
             }
@@ -56,6 +60,10 @@ public sealed class BacklinkService
                     SourceRelativePath = note.RelativePath,
                     ContextSnippet = link.RawText
                 });
+
+                // Der erste gültige Link liefert den Kontext; weitere Verweise derselben Datei sind bereits vertreten.
+                includedSourcePaths.Add(note.FullPath);
+                break;
             }
         }
 
