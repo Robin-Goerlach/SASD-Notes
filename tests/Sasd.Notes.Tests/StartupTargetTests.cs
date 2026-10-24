@@ -31,7 +31,10 @@ internal static class StartupTargetTests
 
             AssertEx.True(StartupArgumentsParser.Parse(Array.Empty<string>(), temporaryRoot) is null,
                 "Ohne Startargument muss das bisherige Startverhalten gewählt werden.");
-            ExpectFailure<ArgumentException>(() => StartupArgumentsParser.Parse(new[] { vaultPath, notePath }, temporaryRoot));
+            ArgumentException multipleArguments = ExpectFailure<ArgumentException>(
+                () => StartupArgumentsParser.Parse(new[] { vaultPath, notePath }, temporaryRoot));
+            AssertEx.True(multipleArguments.Message.Contains("2 Startargumente", StringComparison.Ordinal),
+                "Die Diagnose für mehrere Argumente muss die erkannte Anzahl nennen.");
             ExpectFailure<ArgumentException>(() => StartupArgumentsParser.Parse(new[] { string.Empty }, temporaryRoot));
             ExpectFailure<ArgumentException>(() => StartupArgumentsParser.Parse(new[] { " \t " }, temporaryRoot));
             ExpectFailure<ArgumentException>(() => StartupArgumentsParser.Parse(new[] { "." }, "relativer-Basispfad"));
@@ -59,10 +62,26 @@ internal static class StartupTargetTests
                 "Ein echtes Verzeichnis mit .md-Endung muss als Ordner behandelt werden.");
             AssertEx.True(directoryWithExtension.NotePath is null, "Die Endung allein darf einen Ordner nicht als Datei klassifizieren.");
 
-            ExpectFailure<FileNotFoundException>(() => resolver.Resolve(Path.Combine(vaultPath, "Fehlt.md")));
-            ExpectFailure<FileNotFoundException>(() => resolver.Resolve(Path.Combine(temporaryRoot, "Fehlender Ordner")));
-            ExpectFailure<ArgumentException>(() => resolver.Resolve(textFile));
-            ExpectFailure<ArgumentException>(() => resolver.Resolve("Relativ.md"));
+            string missingNotePath = Path.Combine(vaultPath, "Fehlt.md");
+            FileNotFoundException missingNote = ExpectFailure<FileNotFoundException>(() => resolver.Resolve(missingNotePath));
+            AssertEx.True(missingNote.Message.Contains(missingNotePath, StringComparison.Ordinal),
+                "Die Diagnose für eine fehlende Notiz muss den vollständig geprüften Pfad nennen.");
+
+            string missingFolderPath = Path.Combine(temporaryRoot, "Fehlender Ordner");
+            FileNotFoundException missingFolder = ExpectFailure<FileNotFoundException>(() => resolver.Resolve(missingFolderPath));
+            AssertEx.True(missingFolder.Message.Contains(missingFolderPath, StringComparison.Ordinal),
+                "Die Diagnose für einen fehlenden Ordner muss den vollständig geprüften Pfad nennen.");
+
+            ArgumentException unsupportedFile = ExpectFailure<ArgumentException>(() => resolver.Resolve(textFile));
+            AssertEx.True(unsupportedFile.Message.Contains(textFile, StringComparison.Ordinal)
+                && unsupportedFile.Message.Contains(".md", StringComparison.OrdinalIgnoreCase),
+                "Die Diagnose für einen falschen Dateityp muss Pfad und erwartete Endung nennen.");
+
+            const string relativeResolverPath = "Relativ.md";
+            ArgumentException relativeResolverArgument = ExpectFailure<ArgumentException>(
+                () => resolver.Resolve(relativeResolverPath));
+            AssertEx.True(relativeResolverArgument.Message.Contains(relativeResolverPath, StringComparison.Ordinal),
+                "Die Diagnose für einen relativen Resolver-Pfad muss den erhaltenen Wert nennen.");
 
             AssertEx.Equal(originalWorkingDirectory, Environment.CurrentDirectory, "Die Startauswertung darf das Prozess-Arbeitsverzeichnis nicht umstellen.");
             AssertEx.Equal(noteContent, await File.ReadAllTextAsync(notePath), "Die Startauswertung darf die Markdown-Datei nicht verändern.");
@@ -76,16 +95,20 @@ internal static class StartupTargetTests
         }
     }
 
-    private static void ExpectFailure<TException>(Action action) where TException : Exception
+    /// <summary>
+    /// Führt eine Aktion aus und liefert die erwartete Ausnahme für weitere Diagnoseprüfungen zurück.
+    /// </summary>
+    private static TException ExpectFailure<TException>(Action action) where TException : Exception
     {
         try
         {
             action();
         }
-        catch (TException)
+        catch (TException exception)
         {
-            return;
+            return exception;
         }
+
         throw new InvalidOperationException($"Erwartete Ausnahme fehlt: {typeof(TException).Name}");
     }
 }

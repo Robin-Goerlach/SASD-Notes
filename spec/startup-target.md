@@ -29,8 +29,10 @@ Ordner oder eine Markdown-Datei entgegennehmen.
 ## Fehler
 
 Mehrere Argumente, leere oder ungültige Pfade, nicht vorhandene Ziele und
-andere Dateitypen werden mit einer Fehlermeldung abgewiesen. Bei solchen vor
-dem Fensterstart erkannten Fehlern endet die Anwendung mit Exitcode 1,
+andere Dateitypen werden mit einer Fehlermeldung abgewiesen. Die Diagnose
+nennt bei mehreren Argumenten deren Anzahl und bei einem bereits
+normalisierbaren Ziel den tatsächlich geprüften vollständigen Pfad. Bei solchen
+vor dem Fensterstart erkannten Fehlern endet die Anwendung mit Exitcode 1,
 ohne stattdessen den gemerkten Vault zu öffnen oder Einstellungen zu laden.
 
 Ändert sich das Dateisystem nach der Zielprüfung, greift die normale

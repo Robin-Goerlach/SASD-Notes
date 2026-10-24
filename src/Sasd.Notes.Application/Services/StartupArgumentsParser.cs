@@ -23,8 +23,10 @@ public static class StartupArgumentsParser
         if (arguments.Count != 1)
         {
             throw new ArgumentException(
+                $"Es wurden {arguments.Count} Startargumente übergeben. " +
                 "Bitte geben Sie höchstens einen Ordner oder eine Markdown-Datei an. " +
-                "Pfade mit Leerzeichen müssen in Anführungszeichen stehen.", nameof(arguments));
+                "Pfade mit Leerzeichen müssen in Anführungszeichen stehen.",
+                nameof(arguments));
         }
 
         if (string.IsNullOrWhiteSpace(arguments[0]))

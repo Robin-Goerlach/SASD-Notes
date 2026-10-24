@@ -19,7 +19,9 @@ public sealed class FileSystemStartupTargetResolver
         ArgumentException.ThrowIfNullOrWhiteSpace(fullPath);
         if (!Path.IsPathFullyQualified(fullPath))
         {
-            throw new ArgumentException("Der Startpfad muss vollständig angegeben werden.", nameof(fullPath));
+            throw new ArgumentException(
+                $"Der Startpfad muss vollständig angegeben werden: {fullPath}",
+                nameof(fullPath));
         }
 
         string normalizedPath = Path.GetFullPath(fullPath);
@@ -32,12 +34,16 @@ public sealed class FileSystemStartupTargetResolver
 
         if (!File.Exists(normalizedPath))
         {
-            throw new FileNotFoundException("Der angegebene Startpfad wurde nicht gefunden.", normalizedPath);
+            throw new FileNotFoundException(
+                $"Der angegebene Startpfad wurde nicht gefunden: {normalizedPath}",
+                normalizedPath);
         }
 
         if (!string.Equals(Path.GetExtension(normalizedPath), ".md", StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException("Als Startdatei ist nur eine Markdown-Datei mit der Endung .md zulässig.", nameof(fullPath));
+            throw new ArgumentException(
+                $"Als Startdatei ist nur eine Markdown-Datei mit der Endung .md zulässig: {normalizedPath}",
+                nameof(fullPath));
         }
 
         // Ohne explizite Vault-Kennung wird kein höheres Verzeichnis erraten.
