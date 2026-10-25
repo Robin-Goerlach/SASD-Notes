@@ -29,6 +29,8 @@ public sealed class ResearchForm : Form
     private readonly ToolStripTextBox _searchTextBox = new() { AutoSize = false, Width = 280 };
     private readonly ListBox _searchResults = new();
     private readonly ListBox _outlineItems = new();
+    private readonly ListBox _backlinkItems = new() { Name = "listBoxResearchBacklinks" };
+    private readonly TabPage _backlinksTabPage = new("Backlinks");
     private readonly Label _documentHeader = new();
     private readonly WebView2 _browserView = new();
     private readonly RichTextBox _fallbackView = new();
@@ -172,7 +174,7 @@ public sealed class ResearchForm : Form
         {
             Dock = DockStyle.Top,
             Height = 28,
-            Text = "Gliederung – Doppelklick springt zur Überschrift",
+            Text = "Doppelklick springt zur Überschrift",
             TextAlign = ContentAlignment.MiddleLeft
         };
         _outlineItems.Dock = DockStyle.Fill;
@@ -183,8 +185,33 @@ public sealed class ResearchForm : Form
         outlinePanel.Controls.Add(_outlineItems);
         outlinePanel.Controls.Add(outlineLabel);
 
-        // Suchtreffer und Dokumentgliederung bleiben in einer gemeinsamen Navigationsspalte.
-        // Das bestehende Editorfenster wird dadurch nicht verändert.
+        var backlinkPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
+        var backlinkLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 28,
+            Text = "Doppelklick öffnet die verweisende Notiz",
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        _backlinkItems.Dock = DockStyle.Fill;
+        _backlinkItems.IntegralHeight = false;
+        _backlinkItems.Enabled = false;
+        _backlinkItems.DoubleClick += (_, _) => NavigateToSelectedBacklink();
+        _backlinkItems.KeyDown += backlinkItems_KeyDown;
+        backlinkPanel.Controls.Add(_backlinkItems);
+        backlinkPanel.Controls.Add(backlinkLabel);
+
+        // Gliederung und Rückverweise teilen sich den unteren Navigationsbereich.
+        // Beide verwenden ausschließlich bereits berechnete Application-Ergebnisse.
+        var documentNavigationTabs = new TabControl { Dock = DockStyle.Fill };
+        var outlineTabPage = new TabPage("Gliederung");
+        outlineTabPage.Controls.Add(outlinePanel);
+        _backlinksTabPage.Controls.Add(backlinkPanel);
+        documentNavigationTabs.TabPages.Add(outlineTabPage);
+        documentNavigationTabs.TabPages.Add(_backlinksTabPage);
+
+        // Suchtreffer und dokumentbezogene Navigation bleiben in einer gemeinsamen
+        // Spalte. Das bestehende Editorfenster wird dadurch nicht verändert.
         var navigationSplitContainer = new SplitContainer
         {
             Dock = DockStyle.Fill,
@@ -195,7 +222,7 @@ public sealed class ResearchForm : Form
             Panel2MinSize = 130
         };
         navigationSplitContainer.Panel1.Controls.Add(resultPanel);
-        navigationSplitContainer.Panel2.Controls.Add(outlinePanel);
+        navigationSplitContainer.Panel2.Controls.Add(documentNavigationTabs);
 
         var rightPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
         _documentHeader.Dock = DockStyle.Top;
@@ -369,6 +396,7 @@ public sealed class ResearchForm : Form
         _documentHeader.Text = note.RelativePath;
         _fallbackView.Text = note.Content;
         PopulateOutline(note);
+        PopulateBacklinks(note);
         _openInEditorButton.Enabled = true;
         _pendingSearchHighlight = LocateActiveSearchHit(note);
 
@@ -638,6 +666,9 @@ public sealed class ResearchForm : Form
         _fallbackView.Clear();
         _outlineItems.Items.Clear();
         _outlineItems.Enabled = false;
+        _backlinkItems.Items.Clear();
+        _backlinkItems.Enabled = false;
+        _backlinksTabPage.Text = "Backlinks";
         _pendingHtml = null;
         _activeSearchHit = null;
         _pendingSearchHighlight = null;
@@ -665,6 +696,47 @@ public sealed class ResearchForm : Form
         // wird die Liste erst nach erfolgreichem NavigationCompleted freigegeben.
         _outlineItems.Enabled = outline.Count > 0
             && (!_browserView.Visible || _browserDocumentReady);
+    }
+
+    /// <summary>
+    /// Füllt die Rückverweisliste über die gemeinsame Linkauflösung der Application-Schicht.
+    /// </summary>
+    private void PopulateBacklinks(NoteDocument note)
+    {
+        IReadOnlyList<BacklinkInfo> backlinks = _workspaceService.GetBacklinks(note);
+
+        _backlinkItems.BeginUpdate();
+        _backlinkItems.Items.Clear();
+        foreach (BacklinkInfo backlink in backlinks)
+        {
+            _backlinkItems.Items.Add(backlink);
+        }
+        _backlinkItems.EndUpdate();
+
+        _backlinkItems.Enabled = backlinks.Count > 0;
+        _backlinksTabPage.Text = $"Backlinks ({backlinks.Count})";
+    }
+
+    /// <summary>
+    /// Öffnet die Quellnotiz des ausgewählten Rückverweises im Rechercheverlauf.
+    /// </summary>
+    private void NavigateToSelectedBacklink()
+    {
+        if (_backlinkItems.SelectedItem is not BacklinkInfo backlink)
+        {
+            return;
+        }
+
+        NoteDocument? sourceNote = FindLoadedNote(backlink.SourceRelativePath);
+        if (sourceNote is null)
+        {
+            _statusLabel.Text = "Die verweisende Notiz gehört nicht mehr zum aktuellen Vault.";
+            return;
+        }
+
+        // NavigateTo führt Rückverweise durch denselben Vorwärts-/Rückwärtsverlauf
+        // wie Suchtreffer und angeklickte Wiki-Links.
+        NavigateTo(sourceNote);
     }
 
     /// <summary>
@@ -786,6 +858,20 @@ public sealed class ResearchForm : Form
         }
 
         ExecuteSearch();
+        e.SuppressKeyPress = true;
+    }
+
+    /// <summary>
+    /// Öffnet einen Rückverweis auch tastaturbedient.
+    /// </summary>
+    private void backlinkItems_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode != Keys.Enter)
+        {
+            return;
+        }
+
+        NavigateToSelectedBacklink();
         e.SuppressKeyPress = true;
     }
 

@@ -45,7 +45,7 @@ Geplante Mindestfunktionen:
 - anklickbare Wiki-Links für eindeutig aufgelöste Ziele (umgesetzt),
 - Sprünge zu Überschriften über die Gliederung (umgesetzt),
 - sichtbare und automatisch zentrierte Inhaltstreffer im gelesenen Dokument (umgesetzt),
-- Backlinks als Navigationshilfe; die Outline-Navigation ist umgesetzt,
+- Backlinks und Outline als Navigationshilfen (umgesetzt),
 - verständlicher Ersatzhinweis, falls der Renderer nicht verfügbar ist.
 
 Die vorhandenen Regeln von `WikiLinkParser` und `LinkResolver` bleiben

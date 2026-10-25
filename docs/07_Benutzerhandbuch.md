@@ -122,6 +122,11 @@ Suchtreffer zeigen Titel, Pfad und einen kurzen Kontextausschnitt.
 Der Backlinks-Bereich zeigt, welche Notizen auf die aktuelle Notiz verweisen.  
 Das ist hilfreich für Wissensnetze, Projektdokumentation und Zusammenhänge zwischen Themen.
 
+In der separaten Rechercheansicht stehen **Gliederung** und **Backlinks** als
+Registerkarten unterhalb der Suchtreffer bereit. Die Zahl im Backlink-Reiter
+zeigt die Anzahl der verweisenden Notizen. Doppelklick oder Eingabetaste öffnet
+die ausgewählte Quellnotiz; **Zurück** und **Vor** behalten den Rechercheverlauf.
+
 ---
 
 ## 9. Themenordner

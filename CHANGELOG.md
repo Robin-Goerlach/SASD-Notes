@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Backlinks sind jetzt in einer eigenen Registerkarte der Rechercheansicht sichtbar und per Doppelklick oder Eingabetaste navigierbar. Berechnung und Zielauflösung bleiben in `NotesWorkspaceService` und `BacklinkService`; die UI übernimmt nur die gelieferten Quellpfade in denselben Vorwärts-/Rückwärtsverlauf. Ein Windows-Integrationstest prüft die Anzeige mit einem echten temporären Zwei-Notizen-Vault.
+
 - Suchtreffer tragen jetzt eine UI-unabhängige, kombinierbare Klassifikation für Titel, relativen Pfad und Inhalt. Die Rechercheliste zeigt diese Fundstellen als verständliche Kategorien, ohne Scores oder Suchregeln in WinForms nachzubauen. Einzel- und Mehrfachtreffer, Score-Erhalt und die UI-Formatierung sind automatisiert geprüft.
 
 - Die Rechercheansicht zeigt jetzt eine Gliederung aus dem gemeinsamen Markdown-Outline-Parser. Doppelklick oder Eingabetaste springt in der formatierten Ansicht zur gerenderten Überschrift und im Quelltext-Fallback zur Originalposition. Während einer HTML-Navigation bleibt die Liste gesperrt; das feste, getestete Hostskript ordnet Ebene, JSON-kodierten Titel und Wiederholungsnummer zu und verändert keinen Notizinhalt.

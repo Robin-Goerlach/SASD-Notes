@@ -100,3 +100,12 @@ Markierung und `scrollIntoView` aus. Während
 `NavigateToString` noch läuft, bleibt die Gliederung gesperrt, damit kein Sprung
 versehentlich das vorherige Dokument anspricht. Der Quelltext-Fallback verwendet
 direkt den vom Parser gelieferten Originalindex.
+
+## Backlink-Navigation
+
+Die Rechercheansicht ruft Rückverweise ausschließlich über
+`NotesWorkspaceService.GetBacklinks` ab. Damit bleiben Arbeitsstand-Schnappschuss,
+`BacklinkService` und der gemeinsame `ILinkResolver` maßgeblich. Die WinForms-
+Schicht zeigt `BacklinkInfo`-Einträge an und navigiert anhand des gelieferten
+relativen Quellpfads über denselben `ResearchNavigationService`, der auch
+Suchtreffer und Wiki-Links in den Vorwärts-/Rückwärtsverlauf übernimmt.
