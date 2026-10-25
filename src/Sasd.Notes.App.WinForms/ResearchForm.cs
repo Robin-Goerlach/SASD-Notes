@@ -28,6 +28,7 @@ public sealed class ResearchForm : Form
     private readonly ToolStripButton _openInEditorButton = new("Im Editor öffnen");
     private readonly ToolStripTextBox _searchTextBox = new() { AutoSize = false, Width = 280 };
     private readonly ListBox _searchResults = new();
+    private readonly ListBox _outlineItems = new();
     private readonly Label _documentHeader = new();
     private readonly WebView2 _browserView = new();
     private readonly RichTextBox _fallbackView = new();
@@ -41,6 +42,7 @@ public sealed class ResearchForm : Form
     private SearchHit? _activeSearchHit;
     private (int Start, int Length)? _pendingSearchHighlight;
     private bool _browserReady;
+    private bool _browserDocumentReady;
     private bool _browserUnavailable;
 
     /// <summary>
@@ -148,7 +150,7 @@ public sealed class ResearchForm : Form
         _openInEditorButton.Click += openInEditorButton_Click;
         _searchTextBox.KeyDown += searchTextBox_KeyDown;
 
-        var leftPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
+        var resultPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
         var resultLabel = new Label
         {
             Dock = DockStyle.Top,
@@ -160,8 +162,38 @@ public sealed class ResearchForm : Form
         _searchResults.IntegralHeight = false;
         _searchResults.DoubleClick += (_, _) => NavigateToSelectedResult();
         _searchResults.KeyDown += searchResults_KeyDown;
-        leftPanel.Controls.Add(_searchResults);
-        leftPanel.Controls.Add(resultLabel);
+        resultPanel.Controls.Add(_searchResults);
+        resultPanel.Controls.Add(resultLabel);
+
+        var outlinePanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
+        var outlineLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 28,
+            Text = "Gliederung – Doppelklick springt zur Überschrift",
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        _outlineItems.Dock = DockStyle.Fill;
+        _outlineItems.IntegralHeight = false;
+        _outlineItems.Enabled = false;
+        _outlineItems.DoubleClick += async (_, _) => await NavigateToSelectedOutlineAsync();
+        _outlineItems.KeyDown += outlineItems_KeyDown;
+        outlinePanel.Controls.Add(_outlineItems);
+        outlinePanel.Controls.Add(outlineLabel);
+
+        // Suchtreffer und Dokumentgliederung bleiben in einer gemeinsamen Navigationsspalte.
+        // Das bestehende Editorfenster wird dadurch nicht verändert.
+        var navigationSplitContainer = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            Orientation = Orientation.Horizontal,
+            SplitterDistance = 360,
+            FixedPanel = FixedPanel.Panel2,
+            Panel1MinSize = 180,
+            Panel2MinSize = 130
+        };
+        navigationSplitContainer.Panel1.Controls.Add(resultPanel);
+        navigationSplitContainer.Panel2.Controls.Add(outlinePanel);
 
         var rightPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
         _documentHeader.Dock = DockStyle.Top;
@@ -194,7 +226,7 @@ public sealed class ResearchForm : Form
             SplitterDistance = 390,
             FixedPanel = FixedPanel.Panel1
         };
-        splitContainer.Panel1.Controls.Add(leftPanel);
+        splitContainer.Panel1.Controls.Add(navigationSplitContainer);
         splitContainer.Panel2.Controls.Add(rightPanel);
 
         var statusStrip = new StatusStrip();
@@ -334,6 +366,7 @@ public sealed class ResearchForm : Form
     {
         _documentHeader.Text = note.RelativePath;
         _fallbackView.Text = note.Content;
+        PopulateOutline(note);
         _openInEditorButton.Enabled = true;
         _pendingSearchHighlight = LocateActiveSearchHit(note);
 
@@ -411,6 +444,10 @@ public sealed class ResearchForm : Form
     /// </summary>
     private void ShowBrowserDocument(string html)
     {
+        // Während NavigateToString läuft, darf eine Auswahl nicht versehentlich
+        // noch die zuvor dargestellte HTML-Seite ansteuern.
+        _browserDocumentReady = false;
+        _outlineItems.Enabled = false;
         _browserView.NavigateToString(html);
         _browserView.Visible = true;
         _fallbackView.Visible = false;
@@ -421,8 +458,10 @@ public sealed class ResearchForm : Form
     /// </summary>
     private void ShowFallback()
     {
+        _browserDocumentReady = false;
         _browserView.Visible = false;
         _fallbackView.Visible = true;
+        _outlineItems.Enabled = _outlineItems.Items.Count > 0;
 
         // Auch ohne WebView2 bleibt ein Inhaltstreffer direkt auffindbar.
         if (_pendingSearchHighlight is { } highlight
@@ -457,6 +496,8 @@ public sealed class ResearchForm : Form
         object? sender,
         CoreWebView2NavigationCompletedEventArgs e)
     {
+        _browserDocumentReady = e.IsSuccess;
+        _outlineItems.Enabled = e.IsSuccess && _outlineItems.Items.Count > 0;
         if (!e.IsSuccess || _pendingSearchHighlight is not { } highlight)
         {
             return;
@@ -593,12 +634,101 @@ public sealed class ResearchForm : Form
     {
         _documentHeader.Text = "Keine Notiz ausgewählt";
         _fallbackView.Clear();
+        _outlineItems.Items.Clear();
+        _outlineItems.Enabled = false;
         _pendingHtml = null;
         _activeSearchHit = null;
         _pendingSearchHighlight = null;
         ShowFallback();
         _openInEditorButton.Enabled = false;
         _statusLabel.Text = message;
+    }
+
+    /// <summary>
+    /// Füllt die Gliederung mit dem gemeinsamen Markdown-Outline-Parser.
+    /// </summary>
+    private void PopulateOutline(NoteDocument note)
+    {
+        IReadOnlyList<OutlineItem> outline = _workspaceService.GetOutline(note);
+
+        _outlineItems.BeginUpdate();
+        _outlineItems.Items.Clear();
+        foreach (OutlineItem item in outline)
+        {
+            _outlineItems.Items.Add(item);
+        }
+        _outlineItems.EndUpdate();
+
+        // Im Quelltext-Fallback kann sofort gesprungen werden. Für die HTML-Ansicht
+        // wird die Liste erst nach erfolgreichem NavigationCompleted freigegeben.
+        _outlineItems.Enabled = outline.Count > 0
+            && (!_browserView.Visible || _browserDocumentReady);
+    }
+
+    /// <summary>
+    /// Springt zur ausgewählten Überschrift in der aktuell sichtbaren Darstellung.
+    /// </summary>
+    private async Task NavigateToSelectedOutlineAsync()
+    {
+        if (_outlineItems.SelectedItem is not OutlineItem item)
+        {
+            return;
+        }
+
+        if (_fallbackView.Visible)
+        {
+            int caretPosition = Math.Clamp(item.StartIndex, 0, _fallbackView.TextLength);
+            _fallbackView.Select(caretPosition, 0);
+            _fallbackView.ScrollToCaret();
+            _statusLabel.Text = $"Zur Überschrift gesprungen: {item.HeadingText}";
+            return;
+        }
+
+        if (!_browserReady || !_browserDocumentReady || _browserView.CoreWebView2 is null)
+        {
+            _statusLabel.Text = "Die formatierte Ansicht wird noch geladen.";
+            return;
+        }
+
+        try
+        {
+            // Ebene, Titel und Wiederholungsnummer vermeiden eine Verschiebung durch
+            // Überschriftsformen, die Markdig zusätzlich zum V1-Outline-Parser kennt.
+            int occurrence = CountPreviousEquivalentHeadings(
+                _outlineItems.SelectedIndex,
+                item);
+            string result = await _browserView.CoreWebView2.ExecuteScriptAsync(
+                ResearchOutlineScriptBuilder.Build(item.Level, item.HeadingText, occurrence));
+            _statusLabel.Text = string.Equals(result, "true", StringComparison.Ordinal)
+                ? $"Zur Überschrift gesprungen: {item.HeadingText}"
+                : "Die ausgewählte Überschrift konnte in der formatierten Ansicht nicht gefunden werden.";
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or COMException)
+        {
+            _statusLabel.Text = "Der Sprung zur Überschrift ist derzeit nicht verfügbar.";
+        }
+    }
+
+    /// <summary>
+    /// Zählt gleichlautende Überschriften derselben Ebene vor dem ausgewählten Eintrag.
+    /// </summary>
+    private int CountPreviousEquivalentHeadings(int selectedIndex, OutlineItem selectedItem)
+    {
+        int occurrence = 0;
+        for (int index = 0; index < selectedIndex; index++)
+        {
+            if (_outlineItems.Items[index] is OutlineItem previous
+                && previous.Level == selectedItem.Level
+                && string.Equals(
+                    previous.HeadingText,
+                    selectedItem.HeadingText,
+                    StringComparison.Ordinal))
+            {
+                occurrence++;
+            }
+        }
+
+        return occurrence;
     }
 
     /// <summary>
@@ -654,6 +784,20 @@ public sealed class ResearchForm : Form
         }
 
         ExecuteSearch();
+        e.SuppressKeyPress = true;
+    }
+
+    /// <summary>
+    /// Führt einen Gliederungssprung auch tastaturbedient aus.
+    /// </summary>
+    private async void outlineItems_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode != Keys.Enter)
+        {
+            return;
+        }
+
+        await NavigateToSelectedOutlineAsync();
         e.SuppressKeyPress = true;
     }
 

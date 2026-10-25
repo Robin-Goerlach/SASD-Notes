@@ -83,3 +83,20 @@ Liegt ein Treffer ausschließlich in Markdown-Steuerzeichen oder über mehreren
 HTML-Textknoten, bleibt das Dokument unverändert und die Statusleiste erklärt,
 dass keine Markierung möglich war. Der Quelltext-Fallback markiert weiterhin
 den exakt lokalisierten UTF-16-Bereich direkt im `RichTextBox`-Control.
+
+## Gliederungsnavigation
+
+Die Rechercheansicht bezieht ihre Überschriften über
+`NotesWorkspaceService.GetOutline` und damit aus demselben `IOutlineParser` wie
+die bestehende Editoransicht. Die WinForms-Schicht implementiert keine eigene
+Markdown-Erkennung.
+
+Für die formatierte Ansicht ordnet ein festes Hostskript Ebene, sichtbaren Titel
+und Wiederholungsnummer den gerenderten `h1`- bis `h6`-Elementen zu. Das
+verhindert eine Indexverschiebung durch zusätzliche Überschriftsformen des
+Renderers. Der Titel wird als JSON-Zeichenfolge kodiert, ausschließlich über
+`textContent` verglichen und niemals als HTML eingesetzt. Das Skript führt nur
+Markierung und `scrollIntoView` aus. Während
+`NavigateToString` noch läuft, bleibt die Gliederung gesperrt, damit kein Sprung
+versehentlich das vorherige Dokument anspricht. Der Quelltext-Fallback verwendet
+direkt den vom Parser gelieferten Originalindex.

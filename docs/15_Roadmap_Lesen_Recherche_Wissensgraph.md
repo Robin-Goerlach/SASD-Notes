@@ -43,9 +43,9 @@ Geplante Mindestfunktionen:
 - optional eine geteilte Editor- und Vorschauansicht,
 - Vorwärts- und Zurücknavigation innerhalb des Vaults,
 - anklickbare Wiki-Links für eindeutig aufgelöste Ziele (umgesetzt),
-- Sprünge zu Überschriften,
+- Sprünge zu Überschriften über die Gliederung (umgesetzt),
 - sichtbare und automatisch zentrierte Inhaltstreffer im gelesenen Dokument (umgesetzt),
-- Backlinks und Outline als Navigationshilfen,
+- Backlinks als Navigationshilfe; die Outline-Navigation ist umgesetzt,
 - verständlicher Ersatzhinweis, falls der Renderer nicht verfügbar ist.
 
 Die vorhandenen Regeln von `WikiLinkParser` und `LinkResolver` bleiben

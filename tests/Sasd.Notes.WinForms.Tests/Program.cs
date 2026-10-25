@@ -51,7 +51,8 @@ internal static class Program
             RunDelayedSettingsStartupTest();
             RunExternalChangeTimerTest();
             ResearchHighlightScriptBuilderTests.Run();
-            Console.WriteLine("Alle WinForms-Schließ-, Vault-Lade- und Startzielprüfungen wurden erfolgreich ausgeführt.");
+            ResearchOutlineScriptBuilderTests.Run();
+            Console.WriteLine("Alle WinForms-Schließ-, Vault-Lade-, Startziel- und Rechercheprüfungen wurden erfolgreich ausgeführt.");
             return 0;
         }
         catch (Exception exception)

@@ -84,6 +84,11 @@ public sealed class MarkdigMarkdownHtmlRenderer : IMarkdownHtmlRenderer
               border: 1px solid #d4b106;
               border-radius: 3px;
             }
+            .sasd-outline-target {
+              border-radius: 4px;
+              outline: 2px solid #2f81f7;
+              outline-offset: 4px;
+            }
             img {
               max-width: 100%;
             }
@@ -112,6 +117,9 @@ public sealed class MarkdigMarkdownHtmlRenderer : IMarkdownHtmlRenderer
                 color: #ffffff;
                 background: #7a5d00;
                 border-color: #c9a227;
+              }
+              .sasd-outline-target {
+                outline-color: #58a6ff;
               }
             }
           </style>
