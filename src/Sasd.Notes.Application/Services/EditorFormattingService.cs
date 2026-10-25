@@ -115,6 +115,17 @@ public sealed class EditorFormattingService
         string suffix,
         string placeholder)
     {
+        if (TryGetExistingWrapperSelection(
+            text,
+            selectionStart,
+            selectionLength,
+            prefix,
+            suffix,
+            out TextSelectionTransformResult existingResult))
+        {
+            return existingResult;
+        }
+
         string selectedText = selectionLength > 0
             ? text.Substring(selectionStart, selectionLength)
             : placeholder;
@@ -134,6 +145,133 @@ public sealed class EditorFormattingService
     }
 
     /// <summary>
+    /// Erkennt eine bereits exakt vorhandene Umschließung und erhält deren Inhaltsauswahl.
+    /// </summary>
+    private static bool TryGetExistingWrapperSelection(
+        string text,
+        int selectionStart,
+        int selectionLength,
+        string prefix,
+        string suffix,
+        out TextSelectionTransformResult result)
+    {
+        int selectionEnd = selectionStart + selectionLength;
+
+        // Nach der ersten Formatierung bleibt nur der Inhalt ausgewählt. Dieser häufige
+        // Wiederholungsfall wird erkannt, ohne verschachtelte andere Marker zu verwechseln.
+        int surroundingStart = selectionStart - prefix.Length;
+        int surroundingEnd = selectionEnd + suffix.Length;
+        if (selectionLength > 0
+            && surroundingStart >= 0
+            && surroundingEnd <= text.Length
+            && text.AsSpan(surroundingStart, prefix.Length).SequenceEqual(prefix)
+            && text.AsSpan(selectionEnd, suffix.Length).SequenceEqual(suffix)
+            && HasUnambiguousMarkerBoundaries(
+                text,
+                surroundingStart,
+                surroundingEnd,
+                selectionStart,
+                selectionEnd,
+                prefix,
+                suffix))
+        {
+            result = new TextSelectionTransformResult
+            {
+                UpdatedText = text,
+                SelectionStart = selectionStart,
+                SelectionLength = selectionLength
+            };
+            return true;
+        }
+
+        // Auch eine Auswahl einschließlich der Markdown-Marker wird als bereits formatiert
+        // akzeptiert. Danach ist wieder ausschließlich der eigentliche Inhalt ausgewählt.
+        int minimumWrappedLength = prefix.Length + suffix.Length;
+        int contentStart = selectionStart + prefix.Length;
+        int contentEnd = selectionEnd - suffix.Length;
+        if (selectionLength >= minimumWrappedLength
+            && text.AsSpan(selectionStart, prefix.Length).SequenceEqual(prefix)
+            && text.AsSpan(contentEnd, suffix.Length).SequenceEqual(suffix)
+            && HasUnambiguousMarkerBoundaries(
+                text,
+                selectionStart,
+                selectionEnd,
+                contentStart,
+                contentEnd,
+                prefix,
+                suffix))
+        {
+            result = new TextSelectionTransformResult
+            {
+                UpdatedText = text,
+                SelectionStart = contentStart,
+                SelectionLength = contentEnd - contentStart
+            };
+            return true;
+        }
+
+        result = null!;
+        return false;
+    }
+
+    /// <summary>
+    /// Verhindert, dass beispielsweise ein einzelner Kursiv-Marker mit einem Fett-Marker verwechselt wird.
+    /// </summary>
+    private static bool HasUnambiguousMarkerBoundaries(
+        string text,
+        int wrapperStart,
+        int wrapperEnd,
+        int contentStart,
+        int contentEnd,
+        string prefix,
+        string suffix)
+    {
+        return IsMarkerBoundaryClear(text, wrapperStart - 1, prefix)
+            && IsMarkerBoundaryClear(text, contentStart, prefix)
+            && IsMarkerBoundaryClear(text, contentEnd - 1, suffix)
+            && IsMarkerBoundaryClear(text, wrapperEnd, suffix);
+    }
+
+    /// <summary>
+    /// Prüft bei gleichartigen Markerzeichen, ob direkt daneben kein weiteres Markerzeichen steht.
+    /// </summary>
+    private static bool IsMarkerBoundaryClear(
+        string text,
+        int adjacentPosition,
+        string marker)
+    {
+        if (marker.Length == 0 || marker.Any(character => character != marker[0]))
+        {
+            return true;
+        }
+
+        // Leere Inhalte besitzen keine innere Grenze und werden über die äußeren Grenzen eindeutig geprüft.
+        if (adjacentPosition < 0 || adjacentPosition >= text.Length)
+        {
+            return true;
+        }
+
+        return text[adjacentPosition] != marker[0];
+    }
+
+    /// <summary>
+    /// Erkennt ein dezimales Markdown-Listenpräfix wie <c>1. </c> oder <c>42. </c>.
+    /// </summary>
+    private static bool HasNumberedListPrefix(string line)
+    {
+        int digitCount = 0;
+        while (digitCount < line.Length && char.IsAsciiDigit(line[digitCount]))
+        {
+            digitCount++;
+        }
+
+        return digitCount > 0
+            && digitCount + 1 < line.Length
+            && line[digitCount] == '.'
+            && line[digitCount + 1] == ' ';
+    }
+
+    /// <summary>
     /// Fügt allen betroffenen Zeilen ein Präfix hinzu.
     /// </summary>
     private static TextSelectionTransformResult ApplyLinePrefix(
@@ -148,7 +286,15 @@ public sealed class EditorFormattingService
         // Jeder vorhandene Zeilentrenner bleibt an seiner ursprünglichen Position und in seiner ursprünglichen Form erhalten.
         string replacedBlock = TransformLinesPreservingEndings(
             targetBlock,
-            line => line.Length == 0 ? line : prefix + line);
+            line =>
+            {
+                if (line.Length == 0 || line.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    return line;
+                }
+
+                return prefix + line;
+            });
         string updatedText = text[..lineStart] + replacedBlock + text[lineEnd..];
 
         return new TextSelectionTransformResult
@@ -177,6 +323,12 @@ public sealed class EditorFormattingService
             {
                 if (line.Length == 0)
                 {
+                    return line;
+                }
+
+                if (HasNumberedListPrefix(line))
+                {
+                    visibleIndex++;
                     return line;
                 }
 

@@ -18,6 +18,24 @@ Befehle arbeiten auf Text und Auswahlpositionen und benötigen kein UI-Control.
 - Ein exklusives Auswahlende am Anfang der nächsten Zeile bezieht diese nächste
   Zeile nicht ein.
 
+## Wiederholte Anwendung
+
+Ein Formatierungsbefehl entfernt in V1 keine vorhandene Markdown-Formatierung.
+Wird derselbe Befehl auf einen bereits exakt passend formatierten Inhalt
+angewendet, bleibt der Text unverändert:
+
+- Umschließende Befehle erkennen sowohl eine reine Inhaltsauswahl zwischen den
+  Markern als auch eine Auswahl einschließlich der Marker.
+- Gleichartige Marker werden nur dann als passend angesehen, wenn sie eindeutig
+  begrenzt sind. Dadurch gilt beispielsweise Fettschrift nicht versehentlich
+  als bereits vorhandene Kursivschrift.
+- Zeilenpräfixe werden pro Zeile nicht dupliziert.
+- Bereits dezimal nummerierte Zeilen erhalten kein zweites Nummerierungspräfix.
+
+Diese idempotente Anwendung schützt vor versehentlichen Doppelmarkierungen. Ein
+späterer Umschaltbefehl zum gezielten Entfernen von Formatierungen benötigt eine
+eigene Spezifikation.
+
 ## Zeilentrenner
 
 Zeilenbasierte Befehle verändern ausschließlich den sichtbaren Zeileninhalt.

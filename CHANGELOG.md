@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Wiederholtes Anwenden derselben Markdown-Formatierung erzeugt keine doppelten Umschließungen, Zeilenpräfixe oder Nummerierungen mehr. Vollständig oder nur inhaltlich ausgewählte Marker bleiben korrekt ausgewählt; Fett- und Kursivmarker werden eindeutig unterschieden. Verhalten, Regressionstests und Spezifikation wurden ergänzt.
+
 - Abbruchanforderungen werden beim Vault-Laden jetzt vor und während der rekursiven Dateientdeckung sowie zwischen den einzelnen Lesevorgängen berücksichtigt. Die deterministische Pfadsortierung bleibt erhalten; ein vorab abgebrochener Scan ist mit echten Testdateien abgesichert.
 
 - Der Vault-Scan erkennt Markdown-Endungen jetzt ausdrücklich ohne Unterscheidung der Groß-/Kleinschreibung und lädt Notizen deterministisch nach relativem Pfad. Dadurch sind `.md`, `.MD` und gemischte Schreibweisen unabhängig vom Dateisystem gleich behandelt; fremde Dateitypen, Unterordner und Reihenfolge sind mit echten Dateien getestet.

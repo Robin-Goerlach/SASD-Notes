@@ -146,6 +146,38 @@ internal static class Program
         AssertEx.Equal(8, bold.SelectionStart, "Die Auswahl sollte hinter dem Bold-Präfix beginnen.");
         AssertEx.Equal(4, bold.SelectionLength, "Die Auswahl sollte den ursprünglichen Text markieren.");
 
+        TextSelectionTransformResult repeatedBold = formattingService.Apply(
+            bold.UpdatedText,
+            bold.SelectionStart,
+            bold.SelectionLength,
+            MarkdownFormatKind.Bold);
+        AssertEx.Equal(bold.UpdatedText, repeatedBold.UpdatedText,
+            "Wiederholtes Anwenden derselben Umschließung darf keine zusätzlichen Marker erzeugen.");
+        AssertEx.Equal(bold.SelectionStart, repeatedBold.SelectionStart,
+            "Die Inhaltsauswahl muss bei einer bereits vorhandenen Umschließung erhalten bleiben.");
+        AssertEx.Equal(bold.SelectionLength, repeatedBold.SelectionLength,
+            "Die Länge der Inhaltsauswahl muss bei einer bereits vorhandenen Umschließung erhalten bleiben.");
+
+        TextSelectionTransformResult selectedWrappedWikiLink = formattingService.Apply(
+            "[[Notiz]]",
+            0,
+            9,
+            MarkdownFormatKind.WikiLink);
+        AssertEx.Equal("[[Notiz]]", selectedWrappedWikiLink.UpdatedText,
+            "Eine vollständig ausgewählte vorhandene Umschließung muss unverändert bleiben.");
+        AssertEx.Equal(2, selectedWrappedWikiLink.SelectionStart,
+            "Nach Erkennung einer vollständigen Umschließung soll nur ihr Inhalt ausgewählt sein.");
+        AssertEx.Equal(5, selectedWrappedWikiLink.SelectionLength,
+            "Die Auswahl darf die vorhandenen Wiki-Link-Marker nicht umfassen.");
+
+        TextSelectionTransformResult italicInsideBold = formattingService.Apply(
+            "**Text**",
+            2,
+            4,
+            MarkdownFormatKind.Italic);
+        AssertEx.Equal("***Text***", italicInsideBold.UpdatedText,
+            "Fett-Marker dürfen nicht fälschlich als bereits vorhandene Kursiv-Marker gelten.");
+
         TextSelectionTransformResult strike = formattingService.Apply(
             "Text",
             0,
@@ -166,6 +198,22 @@ internal static class Program
             14,
             MarkdownFormatKind.NumberedList);
         AssertEx.Equal("1. Erster\n2. Zweiter", numbered.UpdatedText, "Nummerierte Listen sollten fortlaufend nummeriert werden.");
+
+        TextSelectionTransformResult repeatedQuote = formattingService.Apply(
+            quote.UpdatedText,
+            quote.SelectionStart,
+            quote.SelectionLength,
+            MarkdownFormatKind.Quote);
+        AssertEx.Equal(quote.UpdatedText, repeatedQuote.UpdatedText,
+            "Ein bereits vorhandenes Zeilenpräfix darf nicht dupliziert werden.");
+
+        TextSelectionTransformResult repeatedNumbered = formattingService.Apply(
+            numbered.UpdatedText,
+            numbered.SelectionStart,
+            numbered.SelectionLength,
+            MarkdownFormatKind.NumberedList);
+        AssertEx.Equal(numbered.UpdatedText, repeatedNumbered.UpdatedText,
+            "Eine bereits nummerierte Liste darf beim erneuten Anwenden nicht doppelt nummeriert werden.");
 
         TextSelectionTransformResult emptySelection = formattingService.Apply(
             string.Empty,
