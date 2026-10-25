@@ -195,6 +195,30 @@ internal static class Program
             500,
             MarkdownFormatKind.Italic);
         AssertEx.Equal("*Äpfel 😀*", unicode.UpdatedText, "Unicode und ungültige Auswahlgrenzen müssen verarbeitet werden.");
+
+        const string emojiText = "A😀B";
+        TextSelectionTransformResult highSurrogateOnly = formattingService.Apply(
+            emojiText, 1, 1, MarkdownFormatKind.Bold);
+        AssertEx.Equal("A**😀**B", highSurrogateOnly.UpdatedText,
+            "Eine am High-Surrogate endende Auswahl muss auf das vollständige Emoji erweitert werden.");
+        AssertEx.Equal(3, highSurrogateOnly.SelectionStart,
+            "Die Auswahl des formatierten Emojis muss hinter dem Markdown-Präfix beginnen.");
+        AssertEx.Equal(2, highSurrogateOnly.SelectionLength,
+            "Das Emoji muss weiterhin als vollständiges UTF-16-Surrogatpaar ausgewählt sein.");
+
+        TextSelectionTransformResult lowSurrogateOnly = formattingService.Apply(
+            emojiText, 2, 1, MarkdownFormatKind.InlineCode);
+        AssertEx.Equal("A`😀`B", lowSurrogateOnly.UpdatedText,
+            "Eine am Low-Surrogate beginnende Auswahl muss auf das vollständige Emoji erweitert werden.");
+
+        TextSelectionTransformResult caretInsideEmoji = formattingService.Apply(
+            emojiText, 2, 0, MarkdownFormatKind.WikiLink);
+        AssertEx.Equal("A[[Notiz]]😀B", caretInsideEmoji.UpdatedText,
+            "Ein Cursor innerhalb eines Emojis muss vor das ungeteilte Surrogatpaar verschoben werden.");
+        AssertEx.Equal(3, caretInsideEmoji.SelectionStart,
+            "Der Wiki-Link-Platzhalter muss nach dem eingefügten Präfix ausgewählt werden.");
+        AssertEx.Equal(5, caretInsideEmoji.SelectionLength,
+            "Die Auswahl muss ausschließlich den Wiki-Link-Platzhalter umfassen.");
     }
 
     /// <summary>

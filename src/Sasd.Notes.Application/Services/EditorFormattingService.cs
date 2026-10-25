@@ -24,12 +24,11 @@ public sealed class EditorFormattingService
     {
         string safeText = text ?? string.Empty;
 
-        // Ungültige UI-Auswahlgrenzen werden auf den gültigen Dokumentbereich begrenzt.
-        int safeSelectionStart = Math.Clamp(selectionStart, 0, safeText.Length);
-        int safeSelectionLength = Math.Clamp(
-            selectionLength,
-            0,
-            safeText.Length - safeSelectionStart);
+        // Ungültige UI-Auswahlgrenzen werden begrenzt, ohne dabei ein UTF-16-Surrogatpaar aufzuteilen.
+        (int safeSelectionStart, int safeSelectionLength) = NormalizeSelection(
+            safeText,
+            selectionStart,
+            selectionLength);
 
         return formatKind switch
         {
@@ -52,6 +51,57 @@ public sealed class EditorFormattingService
                 SelectionLength = safeSelectionLength
             }
         };
+    }
+
+    /// <summary>
+    /// Begrenzt eine Auswahl auf den Dokumentbereich und hält UTF-16-Surrogatpaare ungeteilt.
+    /// </summary>
+    /// <param name="text">Aktueller Dokumenttext.</param>
+    /// <param name="selectionStart">Angeforderte Startposition.</param>
+    /// <param name="selectionLength">Angeforderte Auswahllänge.</param>
+    /// <returns>Gültige Startposition und Länge für die nachfolgende Transformation.</returns>
+    private static (int Start, int Length) NormalizeSelection(
+        string text,
+        int selectionStart,
+        int selectionLength)
+    {
+        int safeStart = Math.Clamp(selectionStart, 0, text.Length);
+        int safeLength = Math.Clamp(selectionLength, 0, text.Length - safeStart);
+
+        // Ein Cursor innerhalb eines Surrogatpaars wird davor positioniert, bleibt aber eine leere Auswahl.
+        if (safeLength == 0)
+        {
+            if (IsBetweenSurrogates(text, safeStart))
+            {
+                safeStart--;
+            }
+
+            return (safeStart, 0);
+        }
+
+        int safeEnd = safeStart + safeLength;
+        if (IsBetweenSurrogates(text, safeStart))
+        {
+            safeStart--;
+        }
+
+        if (IsBetweenSurrogates(text, safeEnd))
+        {
+            safeEnd++;
+        }
+
+        return (safeStart, safeEnd - safeStart);
+    }
+
+    /// <summary>
+    /// Prüft, ob eine UTF-16-Position zwischen High- und Low-Surrogate liegt.
+    /// </summary>
+    private static bool IsBetweenSurrogates(string text, int position)
+    {
+        return position > 0
+            && position < text.Length
+            && char.IsHighSurrogate(text[position - 1])
+            && char.IsLowSurrogate(text[position]);
     }
 
     /// <summary>

@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Markdown-Formatierungen schützen UTF-16-Surrogatpaare an ungewöhnlichen Auswahlgrenzen. Nichtleere Auswahlen werden auf vollständige Zeichen erweitert; ein Cursor innerhalb eines Emojis wird davor positioniert. High-/Low-Surrogate-, Cursor- und Ergebnisauswahlfälle sind getestet und spezifiziert.
+
 - Zeilenbasierte Markdown-Formatierungen erhalten jetzt jeden vorhandenen CRLF-, LF- und CR-Zeilentrenner einzeln. Gemischte Dokumente werden beim Anwenden von Überschriften, Zitaten, Listen und Checklisten nicht mehr stillschweigend vereinheitlicht; Aufzählungs- und Nummerierungsfälle sind getestet und spezifiziert.
 
 - Startfehler nennen jetzt die Anzahl übergebener Argumente beziehungsweise den tatsächlich geprüften vollständigen Pfad. Fehlende Ziele, falsche Dateitypen und unzulässige relative Resolver-Pfade sind durch Diagnoseprüfungen abgesichert.

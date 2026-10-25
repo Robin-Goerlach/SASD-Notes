@@ -7,6 +7,9 @@ Befehle arbeiten auf Text und Auswahlpositionen und benötigen kein UI-Control.
 
 - Auswahlpositionen werden auf den gültigen UTF-16-Bereich des Dokuments
   begrenzt.
+- Eine nichtleere Auswahl wird an ihren Grenzen erweitert, wenn sie andernfalls
+  ein UTF-16-Surrogatpaar teilen würde. Ein Cursor innerhalb eines solchen
+  Paares wird vor das vollständige Zeichen verschoben.
 - Umschließende Befehle markieren nach der Transformation weiterhin den
   eigentlichen Inhalt ohne eingefügte Marker.
 - Eine leere Auswahl erzeugt einen verständlichen Platzhalter und markiert ihn.
