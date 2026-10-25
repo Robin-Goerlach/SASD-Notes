@@ -26,6 +26,7 @@ internal static class Program
             MarkdownInlineCodeTests.Run();
             EditorTextPositionMapperTests.Run();
             RunSearchServiceTests();
+            SearchMatchKindTests.Run();
             SearchPreviewTests.Run();
             SearchHitLocatorTests.Run();
             ResearchNavigationTests.Run();

@@ -48,7 +48,7 @@ repository structure for future implementations and their documentation.
 - Markdown editor toolbar
 - Wiki-link parser (`[[Note]]`, `[[Folder/Note]]`, `[[Note|Alias]]`)
 - Open selected wiki-links from the editor
-- Search in note titles, paths and content
+- Search in note titles, paths and content with clearly classified result sources
 - Separate read-only research window with formatted Markdown, clickable resolved wiki-links, highlighted content hits, heading navigation, search and navigation history
 - Backlinks panel
 - Outline panel from Markdown headings

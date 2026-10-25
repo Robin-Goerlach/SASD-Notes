@@ -61,7 +61,7 @@ und Navigation werden vor einem komplexen Suchindex verbessert.
 
 Geplante Schritte:
 
-- Suchtreffer nach Titel, Pfad und Inhalt erkennbar unterscheiden,
+- Suchtreffer nach Titel, Pfad und Inhalt erkennbar unterscheiden (umgesetzt),
 - Trefferbegriffe und Kontextausschnitte hervorheben,
 - Such- und Navigationsverlauf bereitstellen,
 - Treffer ohne Verlust der aktuellen Arbeitsposition öffnen,

@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Suchtreffer tragen jetzt eine UI-unabhängige, kombinierbare Klassifikation für Titel, relativen Pfad und Inhalt. Die Rechercheliste zeigt diese Fundstellen als verständliche Kategorien, ohne Scores oder Suchregeln in WinForms nachzubauen. Einzel- und Mehrfachtreffer, Score-Erhalt und die UI-Formatierung sind automatisiert geprüft.
+
 - Die Rechercheansicht zeigt jetzt eine Gliederung aus dem gemeinsamen Markdown-Outline-Parser. Doppelklick oder Eingabetaste springt in der formatierten Ansicht zur gerenderten Überschrift und im Quelltext-Fallback zur Originalposition. Während einer HTML-Navigation bleibt die Liste gesperrt; das feste, getestete Hostskript ordnet Ebene, JSON-kodierten Titel und Wiederholungsnummer zu und verändert keinen Notizinhalt.
 
 - Ausgewählte Inhaltstreffer werden in der formatierten Rechercheansicht sichtbar markiert und automatisch zentriert; der Quelltext-Fallback markiert denselben geprüften UTF-16-Bereich. Der vorhandene `SearchHitLocator` behandelt zwischenzeitliche Änderungen. Ein getesteter WinForms-Adapter kodiert Suchtext als JSON und setzt ihn nur als DOM-Text, sodass Notizinhalt keinen ausführbaren Code einschleusen kann. Titel- und Pfadtreffer werden ausdrücklich erklärt.

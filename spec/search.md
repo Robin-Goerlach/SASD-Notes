@@ -35,3 +35,12 @@ Notiz, markiert aber keinen falschen Bereich und fordert zu einer neuen Suche au
 Die anschließende Zuordnung zum Editortext berücksichtigt unterschiedliche
 Zeilenenden (siehe editor-text-positions.md). Trefferdaten und Lokalisierung
 verwenden UTF-16-Positionen.
+
+## Trefferklassifikation
+
+Jeder Treffer enthält eine kombinierbare Klassifikation der tatsächlich
+gefundenen Bereiche: Titel, relativer Pfad und Inhalt. Ein Treffer kann mehrere
+Bereiche gleichzeitig ausweisen. Die Klassifikation entsteht gemeinsam mit der
+Bewertung in der Suchlogik; Oberflächen leiten sie nicht nachträglich aus dem
+Score ab. Dadurch bleibt die additive Bewertung unverändert und die Darstellung
+kann die Fundstellen dennoch eindeutig benennen.

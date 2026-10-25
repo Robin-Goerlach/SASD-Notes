@@ -52,6 +52,7 @@ internal static class Program
             RunExternalChangeTimerTest();
             ResearchHighlightScriptBuilderTests.Run();
             ResearchOutlineScriptBuilderTests.Run();
+            SearchHitFormattingTests.Run();
             Console.WriteLine("Alle WinForms-Schließ-, Vault-Lade-, Startziel- und Rechercheprüfungen wurden erfolgreich ausgeführt.");
             return 0;
         }

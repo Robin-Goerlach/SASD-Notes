@@ -30,23 +30,29 @@ public sealed class SearchService
         {
             int score = 0;
             int matchIndex = note.Content.IndexOf(trimmedQuery, comparison);
+            SearchMatchKind matchKinds = SearchMatchKind.None;
 
+            // Die Klassifikation entsteht gemeinsam mit dem Score. Dadurch müssen
+            // Oberflächen die Suchregeln weder wiederholen noch aus Punktwerten erraten.
             if (note.Title.Contains(trimmedQuery, comparison))
             {
+                matchKinds |= SearchMatchKind.Title;
                 score += 100;
             }
 
             if (note.RelativePath.Contains(trimmedQuery, comparison))
             {
+                matchKinds |= SearchMatchKind.RelativePath;
                 score += 40;
             }
 
             if (matchIndex >= 0)
             {
+                matchKinds |= SearchMatchKind.Content;
                 score += 50;
             }
 
-            if (score <= 0)
+            if (matchKinds == SearchMatchKind.None)
             {
                 continue;
             }
@@ -56,6 +62,7 @@ public sealed class SearchService
                 NoteTitle = note.Title,
                 RelativePath = note.RelativePath,
                 PreviewText = BuildPreview(note.Content, matchIndex, trimmedQuery.Length),
+                MatchKinds = matchKinds,
                 Score = score,
                 MatchIndex = matchIndex,
                 MatchLength = matchIndex >= 0 ? trimmedQuery.Length : 0,

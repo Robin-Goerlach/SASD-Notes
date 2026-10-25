@@ -160,6 +160,8 @@ public sealed class ResearchForm : Form
         };
         _searchResults.Dock = DockStyle.Fill;
         _searchResults.IntegralHeight = false;
+        _searchResults.FormattingEnabled = true;
+        _searchResults.Format += searchResults_Format;
         _searchResults.DoubleClick += (_, _) => NavigateToSelectedResult();
         _searchResults.KeyDown += searchResults_KeyDown;
         resultPanel.Controls.Add(_searchResults);
@@ -799,6 +801,17 @@ public sealed class ResearchForm : Form
 
         await NavigateToSelectedOutlineAsync();
         e.SuppressKeyPress = true;
+    }
+
+    /// <summary>
+    /// Übersetzt ausschließlich die fachliche Trefferklassifikation in einen UI-Text.
+    /// </summary>
+    private void searchResults_Format(object? sender, ListControlConvertEventArgs e)
+    {
+        if (e.ListItem is SearchHit hit)
+        {
+            e.Value = ListItemFormatting.FormatSearchHit(hit);
+        }
     }
 
     /// <summary>

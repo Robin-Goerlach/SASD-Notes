@@ -21,6 +21,11 @@ public sealed class SearchHit
     public required string PreviewText { get; init; }
 
     /// <summary>
+    /// Bereiche der Notiz, in denen die Suchanfrage gefunden wurde.
+    /// </summary>
+    public SearchMatchKind MatchKinds { get; init; }
+
+    /// <summary>
     /// Einfacher Score zur Sortierung der Treffer.
     /// </summary>
     public int Score { get; init; }

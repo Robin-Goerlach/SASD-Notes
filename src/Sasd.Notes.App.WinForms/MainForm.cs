@@ -53,6 +53,11 @@ public partial class MainForm : Form
         InitializeComponent();
         AddAdditionalFormattingButtons();
 
+        // Hauptfenster und Rechercheansicht verwenden dieselbe reine UI-Formatierung.
+        // Die fachliche Klassifikation selbst stammt vollständig aus dem SearchService.
+        listBoxSearchResults.FormattingEnabled = true;
+        listBoxSearchResults.Format += listBoxSearchResults_Format;
+
         // Der Menüpunkt wird programmgesteuert ergänzt, weil der Dialog keine Designer-Abhängigkeit benötigt.
         _newFolderMenuItem = new ToolStripMenuItem("Neuer Ordner...");
         _newFolderMenuItem.Click += newFolderToolStripMenuItem_Click;
@@ -401,6 +406,17 @@ public partial class MainForm : Form
 
         ExecuteSearch();
         e.SuppressKeyPress = true;
+    }
+
+    /// <summary>
+    /// Zeigt die fachlich gelieferten Fundstellen-Kategorien in der Trefferliste an.
+    /// </summary>
+    private void listBoxSearchResults_Format(object? sender, ListControlConvertEventArgs e)
+    {
+        if (e.ListItem is SearchHit hit)
+        {
+            e.Value = ListItemFormatting.FormatSearchHit(hit);
+        }
     }
 
     /// <summary>

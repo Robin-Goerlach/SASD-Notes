@@ -145,8 +145,10 @@ Beispielinhalte:
 
 ### 6.6 Suche
 
-- Treffer im Dateinamen
+- Treffer im Titel und Dateinamen
+- Treffer im relativen Pfad
 - Treffer im Inhalt
+- kombinierte Treffer weisen alle Fundstellen aus
 - keine Treffer
 - Groß-/Kleinschreibung ignorieren
 - Suchausschnitt zeigt Kontext
