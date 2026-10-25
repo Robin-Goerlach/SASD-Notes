@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Abbruchanforderungen werden beim Vault-Laden jetzt vor und während der rekursiven Dateientdeckung sowie zwischen den einzelnen Lesevorgängen berücksichtigt. Die deterministische Pfadsortierung bleibt erhalten; ein vorab abgebrochener Scan ist mit echten Testdateien abgesichert.
+
 - Der Vault-Scan erkennt Markdown-Endungen jetzt ausdrücklich ohne Unterscheidung der Groß-/Kleinschreibung und lädt Notizen deterministisch nach relativem Pfad. Dadurch sind `.md`, `.MD` und gemischte Schreibweisen unabhängig vom Dateisystem gleich behandelt; fremde Dateitypen, Unterordner und Reihenfolge sind mit echten Dateien getestet.
 
 - Markdown-Formatierungen schützen UTF-16-Surrogatpaare an ungewöhnlichen Auswahlgrenzen. Nichtleere Auswahlen werden auf vollständige Zeichen erweitert; ein Cursor innerhalb eines Emojis wird davor positioniert. High-/Low-Surrogate-, Cursor- und Ergebnisauswahlfälle sind getestet und spezifiziert.

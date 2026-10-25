@@ -50,31 +50,49 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     {
         string normalizedVaultPath = Path.GetFullPath(vaultPath);
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Die Dateiendung wird ausdrücklich geprüft, damit das Scanverhalten nicht von der
-        // Groß-/Kleinschreibung des jeweiligen Dateisystems abhängt. Die Sortierung liefert
-        // auf allen Plattformen dieselbe reproduzierbare Reihenfolge relativer Vault-Pfade.
-        string[] files = Directory
-            .EnumerateFiles(normalizedVaultPath, "*", SearchOption.AllDirectories)
-            .Where(path => string.Equals(
-                Path.GetExtension(path),
-                ".md",
-                StringComparison.OrdinalIgnoreCase))
-            .OrderBy(
-                path => Path.GetRelativePath(normalizedVaultPath, path).Replace('\\', '/'),
-                StringComparer.OrdinalIgnoreCase)
-            .ThenBy(
-                path => Path.GetRelativePath(normalizedVaultPath, path).Replace('\\', '/'),
-                StringComparer.Ordinal)
-            .ToArray();
-
-        var notes = new List<NoteDocument>(files.Length);
-
-        foreach (string file in files)
+        // Groß-/Kleinschreibung des jeweiligen Dateisystems abhängt. Die Schleife prüft den
+        // Abbruch bereits während der rekursiven Dateientdeckung und nicht erst vor dem Lesen.
+        var files = new List<(string FullPath, string LogicalRelativePath)>();
+        foreach (string filePath in Directory.EnumerateFiles(
+                     normalizedVaultPath,
+                     "*",
+                     SearchOption.AllDirectories))
         {
-            // Bei größeren Vaults soll das Laden trotzdem sauber abbrechbar bleiben.
             cancellationToken.ThrowIfCancellationRequested();
+            if (!string.Equals(
+                    Path.GetExtension(filePath),
+                    ".md",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
 
-            notes.Add(await ReadNoteFileAsync(normalizedVaultPath, file, cancellationToken));
+            string logicalRelativePath = Path
+                .GetRelativePath(normalizedVaultPath, filePath)
+                .Replace('\\', '/');
+            files.Add((filePath, logicalRelativePath));
+        }
+
+        // Die zweistufige Sortierung liefert auf allen Plattformen dieselbe reproduzierbare Reihenfolge.
+        files.Sort(static (left, right) =>
+        {
+            int ignoreCaseComparison = StringComparer.OrdinalIgnoreCase.Compare(
+                left.LogicalRelativePath,
+                right.LogicalRelativePath);
+            return ignoreCaseComparison != 0
+                ? ignoreCaseComparison
+                : StringComparer.Ordinal.Compare(left.LogicalRelativePath, right.LogicalRelativePath);
+        });
+
+        var notes = new List<NoteDocument>(files.Count);
+        foreach (var (fullPath, _) in files)
+        {
+            // Auch zwischen zwei Dateizugriffen muss ein inzwischen angeforderter Abbruch wirksam werden.
+            cancellationToken.ThrowIfCancellationRequested();
+            notes.Add(await ReadNoteFileAsync(normalizedVaultPath, fullPath, cancellationToken));
         }
 
         return notes;

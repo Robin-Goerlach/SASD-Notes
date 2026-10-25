@@ -25,6 +25,8 @@ plattformneutralen Vergleichen den Schrägstrich `/`.
 ## Fehler und Abbruch
 
 Ein nicht vorhandener oder nicht zugänglicher Vault darf nicht als leerer Vault
-ausgegeben werden. Während des Einlesens einzelner Markdown-Dateien wird ein
-angeforderter Abbruch berücksichtigt. Eine Behandlung unzugänglicher
-Einzeldateien als partieller erfolgreicher Scan ist für V1 nicht vereinbart.
+ausgegeben werden. Ein bereits angeforderter Abbruch wird vor der rekursiven
+Dateientdeckung geprüft. Während der Entdeckung und zwischen dem Einlesen
+einzelner Markdown-Dateien wird der Abbruch erneut berücksichtigt. Eine
+Behandlung unzugänglicher Einzeldateien als partieller erfolgreicher Scan ist
+für V1 nicht vereinbart.

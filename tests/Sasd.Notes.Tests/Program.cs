@@ -669,6 +669,21 @@ internal static class Program
 
             var repository = new FileSystemVaultRepository(new WikiLinkParser());
 
+            using var canceledScan = new CancellationTokenSource();
+            canceledScan.Cancel();
+            bool scanCancellationObserved = false;
+            try
+            {
+                await repository.LoadAllNotesAsync(temporaryVault, canceledScan.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                scanCancellationObserved = true;
+            }
+
+            AssertEx.True(scanCancellationObserved,
+                "Ein bereits abgebrochener Vault-Scan muss vor der Dateientdeckung beendet werden.");
+
             string createdFolder = await repository.CreateFolderAsync(temporaryVault, null, "Projekte");
             AssertEx.Equal("Projekte", createdFolder, "Ein neuer Unterordner sollte relativ zum Vault zurückgegeben werden.");
             AssertEx.True(Directory.Exists(Path.Combine(temporaryVault, "Projekte")), "Der neue Unterordner sollte im Vault angelegt werden.");
