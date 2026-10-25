@@ -20,13 +20,15 @@ rekursiv die normalen Markdown-Notizen und die sichtbare Ordnerstruktur.
 
 Unterordner werden rekursiv ermittelt und relativ zur Vault-Wurzel dargestellt.
 Auch leere Ordner gehören zur Navigationsstruktur. Logische Pfade verwenden in
-plattformneutralen Vergleichen den Schrägstrich `/`.
+plattformneutralen Vergleichen den Schrägstrich `/`. Die Ergebnisliste ist wie
+der Notizbestand zweistufig ordinal sortiert: zuerst ohne Unterscheidung der
+Groß-/Kleinschreibung und bei Gleichstand mit Unterscheidung.
 
 ## Fehler und Abbruch
 
 Ein nicht vorhandener oder nicht zugänglicher Vault darf nicht als leerer Vault
 ausgegeben werden. Ein bereits angeforderter Abbruch wird vor der rekursiven
-Dateientdeckung geprüft. Während der Entdeckung und zwischen dem Einlesen
+Dateientdeckung geprüft. Während der Datei- und Verzeichnisentdeckung sowie zwischen dem Einlesen
 einzelner Markdown-Dateien wird der Abbruch erneut berücksichtigt. Eine
 Behandlung unzugänglicher Einzeldateien als partieller erfolgreicher Scan ist
 für V1 nicht vereinbart.

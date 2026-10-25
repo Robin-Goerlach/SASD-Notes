@@ -375,7 +375,7 @@ internal static class Program
         /// <summary>Anzahl produktiv ausgelöster Dateiprüfungen.</summary>
         public int CheckCount { get; private set; }
         /// <inheritdoc />
-        public IReadOnlyList<string> LoadFolderPaths(string vaultPath) => Array.Empty<string>();
+        public IReadOnlyList<string> LoadFolderPaths(string vaultPath, CancellationToken cancellationToken = default) => Array.Empty<string>();
         /// <inheritdoc />
         public Task<IReadOnlyList<NoteDocument>> LoadAllNotesAsync(string vaultPath, CancellationToken cancellationToken = default)
         {

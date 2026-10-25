@@ -184,7 +184,9 @@ public sealed class NotesWorkspaceService
         List<NoteDocument> preparedNotes = notes
             .OrderBy(note => note.RelativePath, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        List<string> preparedFolders = _vaultRepository.LoadFolderPaths(normalizedVaultPath).ToList();
+        List<string> preparedFolders = _vaultRepository
+            .LoadFolderPaths(normalizedVaultPath, cancellationToken)
+            .ToList();
 
         cancellationToken.ThrowIfCancellationRequested();
         AppSettings preparedSettings = CreateSettingsWithRecentFolder(normalizedVaultPath);

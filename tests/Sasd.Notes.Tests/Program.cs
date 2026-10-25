@@ -732,6 +732,19 @@ internal static class Program
             AssertEx.True(scanCancellationObserved,
                 "Ein bereits abgebrochener Vault-Scan muss vor der Dateientdeckung beendet werden.");
 
+            bool folderScanCancellationObserved = false;
+            try
+            {
+                repository.LoadFolderPaths(temporaryVault, canceledScan.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                folderScanCancellationObserved = true;
+            }
+
+            AssertEx.True(folderScanCancellationObserved,
+                "Ein bereits abgebrochener Ordnerscan muss vor der Verzeichnisentdeckung beendet werden.");
+
             string createdFolder = await repository.CreateFolderAsync(temporaryVault, null, "Projekte");
             AssertEx.Equal("Projekte", createdFolder, "Ein neuer Unterordner sollte relativ zum Vault zurückgegeben werden.");
             AssertEx.True(Directory.Exists(Path.Combine(temporaryVault, "Projekte")), "Der neue Unterordner sollte im Vault angelegt werden.");
@@ -739,6 +752,12 @@ internal static class Program
 
             string nestedFolder = await repository.CreateFolderAsync(temporaryVault, "Projekte", "Archiv");
             AssertEx.Equal("Projekte/Archiv", nestedFolder, "Ein verschachtelter Unterordner sollte korrekt normalisiert werden.");
+
+            IReadOnlyList<string> folderPaths = repository.LoadFolderPaths(temporaryVault);
+            AssertEx.Equal(
+                "Projekte|Projekte/Archiv",
+                string.Join("|", folderPaths),
+                "Der Ordnerscan muss rekursiv und unabhängig von der Dateisystemreihenfolge deterministisch sein.");
 
             bool duplicateFolderRejected = false;
             try

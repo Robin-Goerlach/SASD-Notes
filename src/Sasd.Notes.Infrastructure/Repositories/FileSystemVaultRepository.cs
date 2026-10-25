@@ -30,7 +30,9 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<string> LoadFolderPaths(string vaultPath)
+    public IReadOnlyList<string> LoadFolderPaths(
+        string vaultPath,
+        CancellationToken cancellationToken = default)
     {
         string normalizedVaultPath = Path.GetFullPath(vaultPath);
         if (!Directory.Exists(normalizedVaultPath))
@@ -38,11 +40,32 @@ public sealed class FileSystemVaultRepository : IVaultRepository
             throw new DirectoryNotFoundException($"Der Vault-Ordner wurde nicht gefunden: {vaultPath}");
         }
 
-        // Leere Ordner müssen ebenfalls im Navigationsbaum erscheinen und werden deshalb unabhängig von Notizen geladen.
-        return Directory.GetDirectories(normalizedVaultPath, "*", SearchOption.AllDirectories)
-            .Select(path => Path.GetRelativePath(normalizedVaultPath, path).Replace('\\', '/'))
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Leere Ordner müssen ebenfalls im Navigationsbaum erscheinen und werden deshalb
+        // unabhängig von Notizen geladen. Die explizite Schleife berücksichtigt Abbrüche
+        // bereits während der rekursiven Verzeichnisentdeckung.
+        var folders = new List<string>();
+        foreach (string folderPath in Directory.EnumerateDirectories(
+                     normalizedVaultPath,
+                     "*",
+                     SearchOption.AllDirectories))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            folders.Add(Path.GetRelativePath(normalizedVaultPath, folderPath).Replace('\\', '/'));
+        }
+
+        // Die zweite Vergleichsstufe stabilisiert auch Pfade, die sich nur in der
+        // Groß-/Kleinschreibung unterscheiden und auf dem Dateisystem zulässig sind.
+        folders.Sort(static (left, right) =>
+        {
+            int ignoreCaseComparison = StringComparer.OrdinalIgnoreCase.Compare(left, right);
+            return ignoreCaseComparison != 0
+                ? ignoreCaseComparison
+                : StringComparer.Ordinal.Compare(left, right);
+        });
+
+        return folders;
     }
 
     /// <inheritdoc />

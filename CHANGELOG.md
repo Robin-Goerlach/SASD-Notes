@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Der rekursive Ordnerscan übernimmt jetzt den Abbruchtoken des Vault-Wechsels, prüft ihn vor und während der Verzeichnisentdeckung und liefert eine plattformunabhängig deterministische Pfadreihenfolge. Repository-, Workspace- und Regressionstests sowie die Vault-Spezifikation wurden entsprechend erweitert.
+
 - Wiederholtes Anwenden derselben Markdown-Formatierung erzeugt keine doppelten Umschließungen, Zeilenpräfixe oder Nummerierungen mehr. Vollständig oder nur inhaltlich ausgewählte Marker bleiben korrekt ausgewählt; Fett- und Kursivmarker werden eindeutig unterschieden. Verhalten, Regressionstests und Spezifikation wurden ergänzt.
 
 - Abbruchanforderungen werden beim Vault-Laden jetzt vor und während der rekursiven Dateientdeckung sowie zwischen den einzelnen Lesevorgängen berücksichtigt. Die deterministische Pfadsortierung bleibt erhalten; ein vorab abgebrochener Scan ist mit echten Testdateien abgesichert.

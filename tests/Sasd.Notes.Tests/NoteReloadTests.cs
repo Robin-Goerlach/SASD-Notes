@@ -191,7 +191,7 @@ internal static class NoteReloadTests
         /// <inheritdoc />
         public bool VaultExists(string vaultPath) => true;
         /// <inheritdoc />
-        public IReadOnlyList<string> LoadFolderPaths(string vaultPath) => Array.Empty<string>();
+        public IReadOnlyList<string> LoadFolderPaths(string vaultPath, CancellationToken cancellationToken = default) => Array.Empty<string>();
         /// <inheritdoc />
         public bool HasChangedSinceLoaded(NoteDocument note) => false;
 

@@ -77,6 +77,8 @@ internal static class WorkspaceSwitchTests
         }
 
         AssertEx.True(wasCancelled, "Ein abgebrochener Wechsel muss als Abbruch gemeldet werden.");
+        AssertEx.True(vaultRepository.LastFolderScanCancellationToken == cancellation.Token,
+            "Der Workspace muss seinen Abbruchtoken unverändert an den Ordnerscan weitergeben.");
         AssertOldState(workspace, oldPath, oldNote);
         vaultRepository.AfterFolderScan = null;
 
@@ -145,6 +147,7 @@ internal static class WorkspaceSwitchTests
         public bool FailNotes { get; set; }
         public bool FailFolders { get; set; }
         public Action? AfterFolderScan { get; set; }
+        public CancellationToken LastFolderScanCancellationToken { get; private set; }
         public IReadOnlyList<string> Folders { get; set; } = new[] { "AlterOrdner" };
 
         public bool VaultExists(string vaultPath) => true;
@@ -171,8 +174,11 @@ internal static class WorkspaceSwitchTests
             return Task.FromResult(notes);
         }
 
-        public IReadOnlyList<string> LoadFolderPaths(string vaultPath)
+        public IReadOnlyList<string> LoadFolderPaths(string vaultPath, CancellationToken cancellationToken = default)
         {
+            LastFolderScanCancellationToken = cancellationToken;
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (FailFolders)
             {
                 throw new IOException("Simulierter Ordnerlesefehler.");

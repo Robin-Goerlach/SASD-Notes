@@ -108,7 +108,7 @@ internal static class RecentFolderTests
         public Task<IReadOnlyList<NoteDocument>> LoadAllNotesAsync(
             string vaultPath, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<NoteDocument>>(Array.Empty<NoteDocument>());
-        public IReadOnlyList<string> LoadFolderPaths(string vaultPath) => Array.Empty<string>();
+        public IReadOnlyList<string> LoadFolderPaths(string vaultPath, CancellationToken cancellationToken = default) => Array.Empty<string>();
         public Task<NoteDocument> LoadNoteAsync(
             string vaultPath, string fullNotePath, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
