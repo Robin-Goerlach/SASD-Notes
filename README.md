@@ -49,7 +49,7 @@ repository structure for future implementations and their documentation.
 - Wiki-link parser (`[[Note]]`, `[[Folder/Note]]`, `[[Note|Alias]]`)
 - Open selected wiki-links from the editor
 - Search in note titles, paths and content
-- Separate read-only research window with search and navigation history
+- Separate read-only research window with formatted Markdown, search and navigation history
 - Backlinks panel
 - Outline panel from Markdown headings
 - Info panel and status bar metrics
@@ -182,6 +182,7 @@ contract includes concepts such as:
 - [Multi-language repository structure](docs/12_Multi_Language_Repository_Struktur.md)
 - [V1 release checklist](docs/14_Release_Checkliste_V1.md)
 - [Reading, research, and knowledge graph roadmap](docs/15_Roadmap_Lesen_Recherche_Wissensgraph.md)
+- [ADR: Markdown reader with Markdig and WebView2](docs/16_ADR_Markdown_Renderer_WebView2.md)
 
 The repository-level [`AGENTS.md`](AGENTS.md) contains the general development
 rules. The .NET-specific guidance is available in

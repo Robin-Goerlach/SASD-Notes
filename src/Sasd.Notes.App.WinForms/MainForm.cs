@@ -1,4 +1,5 @@
 using Sasd.Notes.App.WinForms.Dialogs;
+using Sasd.Notes.Application.Interfaces;
 using Sasd.Notes.Application.Models;
 using Sasd.Notes.Application.Services;
 using Sasd.Notes.Domain.Models;
@@ -12,6 +13,7 @@ public partial class MainForm : Form
 {
     private readonly NotesWorkspaceService _workspaceService;
     private readonly EditorFormattingService _editorFormattingService;
+    private readonly IMarkdownHtmlRenderer? _markdownRenderer;
     private readonly StartupTarget? _startupTarget;
     private NoteDocument? _currentNote;
     private bool _suppressEditorEvents;
@@ -33,14 +35,17 @@ public partial class MainForm : Form
     /// <param name="workspaceService">Dienst für den aktiven Vault und seine Notizen.</param>
     /// <param name="editorFormattingService">UI-unabhängige Markdown-Formatierung.</param>
     /// <param name="startupTarget">Explizites Startziel oder <see langword="null"/> für das bisherige Startverhalten.</param>
+    /// <param name="markdownRenderer">Optionaler HTML-Renderer für die Rechercheansicht.</param>
     public MainForm(
         NotesWorkspaceService workspaceService,
         EditorFormattingService editorFormattingService,
-        StartupTarget? startupTarget = null)
+        StartupTarget? startupTarget = null,
+        IMarkdownHtmlRenderer? markdownRenderer = null)
     {
         _workspaceService = workspaceService;
         _editorFormattingService = editorFormattingService;
         _startupTarget = startupTarget;
+        _markdownRenderer = markdownRenderer;
         InitializeComponent();
         AddAdditionalFormattingButtons();
 
@@ -1247,7 +1252,7 @@ public partial class MainForm : Form
             return;
         }
 
-        _researchForm = new ResearchForm(_workspaceService, OpenNoteFromResearchAsync);
+        _researchForm = new ResearchForm(_workspaceService, _markdownRenderer, OpenNoteFromResearchAsync);
         _researchForm.FormClosed += (_, _) => _researchForm = null;
         _researchForm.RefreshWorkspace(_currentNote);
         _researchForm.Show(this);

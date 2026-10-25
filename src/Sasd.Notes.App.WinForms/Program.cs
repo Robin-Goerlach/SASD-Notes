@@ -48,6 +48,7 @@ internal static class Program
         var searchService = new SearchService();
         var backlinkService = new BacklinkService(linkResolver);
         var editorFormattingService = new EditorFormattingService();
+        var markdownRenderer = new MarkdigMarkdownHtmlRenderer();
 
         var workspaceService = new NotesWorkspaceService(
             vaultRepository,
@@ -59,7 +60,11 @@ internal static class Program
             backlinkService);
 
         // Der vollqualifizierte Name vermeidet die Kollision mit dem Namespace Sasd.Notes.Application.
-        System.Windows.Forms.Application.Run(new MainForm(workspaceService, editorFormattingService, startupTarget));
+        System.Windows.Forms.Application.Run(new MainForm(
+            workspaceService,
+            editorFormattingService,
+            startupTarget,
+            markdownRenderer));
         return 0;
     }
 }

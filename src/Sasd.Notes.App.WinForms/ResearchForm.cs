@@ -1,3 +1,9 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
+using Sasd.Notes.Application.Interfaces;
 using Sasd.Notes.Application.Services;
 using Sasd.Notes.Domain.Models;
 
@@ -8,7 +14,12 @@ namespace Sasd.Notes.App.WinForms;
 /// </summary>
 public sealed class ResearchForm : Form
 {
+    // NavigateToString akzeptiert höchstens zwei Millionen Zeichen. Ein kleiner
+    // Sicherheitsabstand verhindert Grenzfehler durch zukünftige Rahmenänderungen.
+    private const int MaximumBrowserDocumentLength = 1_900_000;
+
     private readonly NotesWorkspaceService _workspaceService;
+    private readonly IMarkdownHtmlRenderer? _markdownRenderer;
     private readonly Func<NoteDocument, Task<bool>> _openInEditorAsync;
     private readonly ResearchNavigationService _navigationService = new();
     private readonly ToolStripButton _backButton = new("Zurück");
@@ -17,23 +28,36 @@ public sealed class ResearchForm : Form
     private readonly ToolStripTextBox _searchTextBox = new() { AutoSize = false, Width = 280 };
     private readonly ListBox _searchResults = new();
     private readonly Label _documentHeader = new();
-    private readonly RichTextBox _documentView = new();
-    private readonly ToolStripStatusLabel _statusLabel = new() { Spring = true, TextAlign = ContentAlignment.MiddleLeft };
+    private readonly WebView2 _browserView = new();
+    private readonly RichTextBox _fallbackView = new();
+    private readonly ToolStripStatusLabel _statusLabel = new()
+    {
+        Spring = true,
+        TextAlign = ContentAlignment.MiddleLeft
+    };
+
+    private string? _pendingHtml;
+    private bool _browserReady;
+    private bool _browserUnavailable;
 
     /// <summary>
     /// Initialisiert eine Rechercheansicht für den gemeinsam genutzten Workspace.
     /// </summary>
     /// <param name="workspaceService">Workspace mit dem aktuell geladenen Vault und dessen Arbeitsständen.</param>
+    /// <param name="markdownRenderer">Renderer für das sichere, vollständige HTML-Dokument oder <see langword="null"/> für die Quelltextansicht.</param>
     /// <param name="openInEditorAsync">Vom Hauptfenster kontrollierter Wechsel einer Notiz in den Editor.</param>
     public ResearchForm(
         NotesWorkspaceService workspaceService,
+        IMarkdownHtmlRenderer? markdownRenderer,
         Func<NoteDocument, Task<bool>> openInEditorAsync)
     {
         _workspaceService = workspaceService ?? throw new ArgumentNullException(nameof(workspaceService));
+        _markdownRenderer = markdownRenderer;
         _openInEditorAsync = openInEditorAsync ?? throw new ArgumentNullException(nameof(openInEditorAsync));
 
         InitializeLayout();
         UpdateNavigationButtons();
+        Shown += researchForm_Shown;
     }
 
     /// <summary>
@@ -140,15 +164,22 @@ public sealed class ResearchForm : Form
         _documentHeader.TextAlign = ContentAlignment.MiddleLeft;
         _documentHeader.AutoEllipsis = true;
 
-        // Der erste Schnitt ist absichtlich schreibgeschützt. Ein HTML-Renderer wird später
-        // hinter einer eigenen Schnittstelle ergänzt und verändert den Markdown-Text nicht.
-        _documentView.Dock = DockStyle.Fill;
-        _documentView.ReadOnly = true;
-        _documentView.BorderStyle = BorderStyle.None;
-        _documentView.Font = new Font("Consolas", 11F);
-        _documentView.WordWrap = true;
-        _documentView.BackColor = SystemColors.Window;
-        rightPanel.Controls.Add(_documentView);
+        _browserView.Dock = DockStyle.Fill;
+        _browserView.Visible = false;
+
+        // Die Fallback-Ansicht bleibt hinter WebView2 erhalten. Sie zeigt weiterhin
+        // lesbaren Inhalt, wenn Runtime, Renderer oder Dokumentgröße die HTML-Ansicht verhindern.
+        _fallbackView.Dock = DockStyle.Fill;
+        _fallbackView.ReadOnly = true;
+        _fallbackView.BorderStyle = BorderStyle.None;
+        _fallbackView.Font = new Font("Consolas", 11F);
+        _fallbackView.WordWrap = true;
+        _fallbackView.BackColor = SystemColors.Window;
+
+        var documentPanel = new Panel { Dock = DockStyle.Fill };
+        documentPanel.Controls.Add(_browserView);
+        documentPanel.Controls.Add(_fallbackView);
+        rightPanel.Controls.Add(documentPanel);
         rightPanel.Controls.Add(_documentHeader);
 
         var splitContainer = new SplitContainer
@@ -166,6 +197,47 @@ public sealed class ResearchForm : Form
         Controls.Add(splitContainer);
         Controls.Add(statusStrip);
         Controls.Add(toolStrip);
+    }
+
+    /// <summary>
+    /// Initialisiert WebView2 erst nach dem Anzeigen des Fensters und richtet sichere Standardwerte ein.
+    /// </summary>
+    private async void researchForm_Shown(object? sender, EventArgs e)
+    {
+        if (_markdownRenderer is null)
+        {
+            _browserUnavailable = true;
+            ShowFallback();
+            return;
+        }
+
+        try
+        {
+            await _browserView.EnsureCoreWebView2Async();
+
+            // Die generierte Vorschau benötigt weder JavaScript noch .NET-Hostobjekte.
+            // Das Abschalten reduziert die Angriffsfläche zusätzlich zur CSP des Dokuments.
+            _browserView.CoreWebView2.Settings.IsScriptEnabled = false;
+            _browserView.CoreWebView2.Settings.IsWebMessageEnabled = false;
+            _browserView.CoreWebView2.Settings.AreHostObjectsAllowed = false;
+            _browserView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+            _browserView.CoreWebView2.NavigationStarting += browserView_NavigationStarting;
+            _browserReady = true;
+
+            if (_pendingHtml is not null)
+            {
+                ShowBrowserDocument(_pendingHtml);
+            }
+        }
+        catch (WebView2RuntimeNotFoundException)
+        {
+            UseBrowserFallback("Die WebView2-Runtime ist nicht installiert. Markdown wird als Quelltext angezeigt.");
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or COMException or IOException)
+        {
+            UseBrowserFallback("Die formatierte Ansicht konnte nicht initialisiert werden. Markdown wird als Quelltext angezeigt.");
+        }
     }
 
     /// <summary>
@@ -243,16 +315,128 @@ public sealed class ResearchForm : Form
     }
 
     /// <summary>
-    /// Übernimmt den aktuellen In-Memory-Text einer Notiz in die Leseansicht.
+    /// Rendert den aktuellen In-Memory-Text, ohne ihn oder die Notizdatei zu verändern.
     /// </summary>
     private void DisplayDocument(NoteDocument note)
     {
         _documentHeader.Text = note.RelativePath;
-        _documentView.Text = note.Content;
+        _fallbackView.Text = note.Content;
         _openInEditorButton.Enabled = true;
-        _statusLabel.Text = note.IsDirty
-            ? "Arbeitsstand mit ungespeicherten Änderungen."
-            : "Schreibgeschützte Markdown-Ansicht.";
+
+        if (_markdownRenderer is null || _browserUnavailable)
+        {
+            ShowFallback();
+            _statusLabel.Text = note.IsDirty
+                ? "Quelltextansicht mit ungespeicherten Änderungen."
+                : "Schreibgeschützte Markdown-Quelltextansicht.";
+            return;
+        }
+
+        try
+        {
+            string html = _markdownRenderer.Render(note.Content);
+            if (html.Length > MaximumBrowserDocumentLength)
+            {
+                _pendingHtml = null;
+                ShowFallback();
+                _statusLabel.Text = "Das Dokument ist für die eingebettete HTML-Ansicht zu groß und wird als Quelltext angezeigt.";
+                return;
+            }
+
+            _pendingHtml = html;
+            if (_browserReady)
+            {
+                ShowBrowserDocument(html);
+            }
+            else
+            {
+                ShowFallback();
+            }
+
+            _statusLabel.Text = note.IsDirty
+                ? "Formatierte Ansicht des ungespeicherten Arbeitsstands."
+                : "Formatierte, schreibgeschützte Markdown-Ansicht.";
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            _pendingHtml = null;
+            ShowFallback();
+            _statusLabel.Text = "Markdown konnte nicht formatiert werden und wird als Quelltext angezeigt.";
+        }
+    }
+
+    /// <summary>
+    /// Zeigt ein bereits erzeugtes HTML-Dokument im initialisierten Browser-Control.
+    /// </summary>
+    private void ShowBrowserDocument(string html)
+    {
+        _browserView.NavigateToString(html);
+        _browserView.Visible = true;
+        _fallbackView.Visible = false;
+    }
+
+    /// <summary>
+    /// Aktiviert die stets verfügbare schreibgeschützte Quelltextdarstellung.
+    /// </summary>
+    private void ShowFallback()
+    {
+        _browserView.Visible = false;
+        _fallbackView.Visible = true;
+    }
+
+    /// <summary>
+    /// Schaltet nach einem Initialisierungsfehler dauerhaft auf die sichere Fallback-Ansicht um.
+    /// </summary>
+    private void UseBrowserFallback(string message)
+    {
+        _browserUnavailable = true;
+        _browserReady = false;
+        _pendingHtml = null;
+        ShowFallback();
+        _statusLabel.Text = message;
+    }
+
+    /// <summary>
+    /// Verhindert freie Browsernavigation und übergibt externe Links nur nach Bestätigung an Windows.
+    /// </summary>
+    private void browserView_NavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (e.Uri.StartsWith("about:blank", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        if (!Uri.TryCreate(e.Uri, UriKind.Absolute, out Uri? uri)
+            || (uri.Scheme != Uri.UriSchemeHttp
+                && uri.Scheme != Uri.UriSchemeHttps
+                && uri.Scheme != Uri.UriSchemeMailto))
+        {
+            _statusLabel.Text = "Die angeforderte Navigation wurde aus Sicherheitsgründen blockiert.";
+            return;
+        }
+
+        DialogResult result = MessageBox.Show(
+            this,
+            $"Externen Link mit der Windows-Standardanwendung öffnen?{Environment.NewLine}{Environment.NewLine}{uri}",
+            "SASD Notes – Externer Link",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+        if (result != DialogResult.Yes)
+        {
+            _statusLabel.Text = "Externer Link wurde nicht geöffnet.";
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+            _statusLabel.Text = "Externer Link wurde an Windows übergeben.";
+        }
+        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
+        {
+            _statusLabel.Text = "Der externe Link konnte nicht geöffnet werden.";
+        }
     }
 
     /// <summary>
@@ -261,7 +445,9 @@ public sealed class ResearchForm : Form
     private void ClearDocument(string message)
     {
         _documentHeader.Text = "Keine Notiz ausgewählt";
-        _documentView.Clear();
+        _fallbackView.Clear();
+        _pendingHtml = null;
+        ShowFallback();
         _openInEditorButton.Enabled = false;
         _statusLabel.Text = message;
     }

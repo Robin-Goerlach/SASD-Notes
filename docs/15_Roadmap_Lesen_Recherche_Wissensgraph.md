@@ -34,6 +34,8 @@ Geplante Mindestfunktionen:
 
 - eine eigenständige Rechercheansicht, welche die vorhandene Editoroberfläche
   unverändert lässt,
+- formatierte Markdown-Darstellung über einen austauschbaren Renderer-Vertrag,
+- sichere WebView-Darstellung mit stets verfügbarer Quelltext-Rückfallebene,
 - Suche, Trefferliste und schreibgeschützte Dokumentanzeige in einem separaten
   Fenster,
 - kontrollierter Wechsel einer gelesenen Notiz in den Editor,

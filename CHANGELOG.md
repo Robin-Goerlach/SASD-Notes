@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Die Rechercheansicht rendert Markdown jetzt über einen UI-unabhängigen Vertrag mit Markdig und zeigt das Ergebnis sicher eingeschränkt in WebView2. Rohes HTML, Skripte, Hostobjekte und automatische Navigation sind deaktiviert; CSP, bestätigte externe Links, Größenbegrenzung und Quelltext-Fallback schützen die lokale Arbeitsweise. Renderer-Tests und ADR ergänzt.
+
 - Erste eigenständige Rechercheansicht ergänzt, ohne das bestehende Editorlayout zu verändern. Das separate Fenster durchsucht den geladenen Arbeitsstand, zeigt Notizen schreibgeschützt, besitzt einen getesteten Vorwärts-/Rückwärtsverlauf und öffnet Notizen kontrolliert über die Dirty-State-Prüfung im Editor. Der spätere formatierte Renderer bleibt architektonisch getrennt.
 
 - Die verbindliche Fortsetzung für browserähnliches Markdown-Lesen, Recherchekomfort und Wissensgraph wurde als eigene Roadmap dokumentiert. Die laufende V1-Stabilisierung bleibt zuerst; danach folgen Leseansicht, Navigation, Suchdarstellung, testbares Graphmodell, lokaler 2D-Graph und erst später eine optionale 3D-Darstellung.
