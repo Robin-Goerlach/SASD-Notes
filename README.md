@@ -180,6 +180,7 @@ contract includes concepts such as:
 - [V1 / V2 backlog](docs/11_Backlog_V1_V2.md)
 - [Multi-language repository structure](docs/12_Multi_Language_Repository_Struktur.md)
 - [V1 release checklist](docs/14_Release_Checkliste_V1.md)
+- [Reading, research, and knowledge graph roadmap](docs/15_Roadmap_Lesen_Recherche_Wissensgraph.md)
 
 The repository-level [`AGENTS.md`](AGENTS.md) contains the general development
 rules. The .NET-specific guidance is available in

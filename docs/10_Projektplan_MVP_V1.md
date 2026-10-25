@@ -78,6 +78,21 @@ Ein lokales Windows-Desktop-Werkzeug, das:
 - Dokumentation aktualisieren
 - Release Candidate aufbauen
 
+### Priorisierte Fortsetzung nach der stabilen V1-Basis
+
+Nach Abschluss und manueller Abnahme der V1-Basis folgt der verbindlich
+vorgesehene Ausbau zum Lesen und Recherchieren:
+
+1. formatierte, browserähnlich bedienbare Markdown-Leseansicht,
+2. Navigationsverlauf und verbesserte Suchdarstellung,
+3. testbares Wissensgraph-Modell,
+4. lokaler 2D-Graph,
+5. spätere Prüfung einer räumlichen beziehungsweise 3D-Darstellung.
+
+Die technische und fachliche Staffelung ist in
+[`15_Roadmap_Lesen_Recherche_Wissensgraph.md`](15_Roadmap_Lesen_Recherche_Wissensgraph.md)
+festgehalten.
+
 ---
 
 ## 4. Ausbaublöcke nach V1

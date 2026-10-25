@@ -38,14 +38,26 @@ Status: Arbeitsfassung
 - einfache Druckfunktion
 - Drag & Drop von Dateien in den Vault
 
-## V2 Perspektive
+## Priorisierter Ausbau nach der stabilen V1-Basis
 
-- Markdown-Preview
+- browserähnliche Markdown-Leseansicht
+- Umschalten zwischen Bearbeiten und Lesen
+- optional geteilte Editor- und Vorschauansicht
+- Vorwärts- und Zurücknavigation im Vault
+- bessere Suchtreffer-Darstellung und Rechercheoberfläche
+- UI-unabhängiges, getestetes Wissensgraph-Modell
+- lokaler 2D-Graph mit begrenzter Tiefe und Filtern
+
+## Weitere V2-Perspektive
+
+- optionale räumliche beziehungsweise 3D-Graphansicht
 - Mehrfach-Tabs
 - Splits / mehrere Editorbereiche
 - Plugin-System
-- Suchindex
+- Suchindex bei nachgewiesenem Leistungsbedarf
 - bessere Properties-Unterstützung
 - Theme-Unterstützung
-- Diagramm-/Graphansicht
 - Asset-Management
+
+Die Reihenfolge und Architekturgrenzen beschreibt die
+[Roadmap für Lesen, Recherche und Wissensgraph](15_Roadmap_Lesen_Recherche_Wissensgraph.md).

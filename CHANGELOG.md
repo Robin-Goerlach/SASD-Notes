@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Die verbindliche Fortsetzung für browserähnliches Markdown-Lesen, Recherchekomfort und Wissensgraph wurde als eigene Roadmap dokumentiert. Die laufende V1-Stabilisierung bleibt zuerst; danach folgen Leseansicht, Navigation, Suchdarstellung, testbares Graphmodell, lokaler 2D-Graph und erst später eine optionale 3D-Darstellung.
+
 - Der rekursive Ordnerscan übernimmt jetzt den Abbruchtoken des Vault-Wechsels, prüft ihn vor und während der Verzeichnisentdeckung und liefert eine plattformunabhängig deterministische Pfadreihenfolge. Repository-, Workspace- und Regressionstests sowie die Vault-Spezifikation wurden entsprechend erweitert.
 
 - Wiederholtes Anwenden derselben Markdown-Formatierung erzeugt keine doppelten Umschließungen, Zeilenpräfixe oder Nummerierungen mehr. Vollständig oder nur inhaltlich ausgewählte Marker bleiben korrekt ausgewählt; Fett- und Kursivmarker werden eindeutig unterschieden. Verhalten, Regressionstests und Spezifikation wurden ergänzt.
