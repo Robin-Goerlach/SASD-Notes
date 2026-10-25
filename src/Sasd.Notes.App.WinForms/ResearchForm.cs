@@ -20,6 +20,7 @@ public sealed class ResearchForm : Form
 
     private readonly NotesWorkspaceService _workspaceService;
     private readonly IMarkdownHtmlRenderer? _markdownRenderer;
+    private readonly ResearchMarkdownService? _researchMarkdownService;
     private readonly Func<NoteDocument, Task<bool>> _openInEditorAsync;
     private readonly ResearchNavigationService _navigationService = new();
     private readonly ToolStripButton _backButton = new("Zurück");
@@ -45,14 +46,17 @@ public sealed class ResearchForm : Form
     /// </summary>
     /// <param name="workspaceService">Workspace mit dem aktuell geladenen Vault und dessen Arbeitsständen.</param>
     /// <param name="markdownRenderer">Renderer für das sichere, vollständige HTML-Dokument oder <see langword="null"/> für die Quelltextansicht.</param>
+    /// <param name="researchMarkdownService">Dienst zum Vorbereiten eindeutig aufgelöster Wiki-Links.</param>
     /// <param name="openInEditorAsync">Vom Hauptfenster kontrollierter Wechsel einer Notiz in den Editor.</param>
     public ResearchForm(
         NotesWorkspaceService workspaceService,
         IMarkdownHtmlRenderer? markdownRenderer,
+        ResearchMarkdownService? researchMarkdownService,
         Func<NoteDocument, Task<bool>> openInEditorAsync)
     {
         _workspaceService = workspaceService ?? throw new ArgumentNullException(nameof(workspaceService));
         _markdownRenderer = markdownRenderer;
+        _researchMarkdownService = researchMarkdownService;
         _openInEditorAsync = openInEditorAsync ?? throw new ArgumentNullException(nameof(openInEditorAsync));
 
         InitializeLayout();
@@ -334,7 +338,12 @@ public sealed class ResearchForm : Form
 
         try
         {
-            string html = _markdownRenderer.Render(note.Content);
+            // Die Application-Schicht wandelt nur eindeutig aufgelöste Wiki-Links um.
+            // Der HTML-Renderer bleibt dadurch frei von Vault- und Navigationswissen.
+            string renderableMarkdown = _researchMarkdownService?.PrepareForRendering(
+                note.Content,
+                _workspaceService.LoadedNotes) ?? note.Content;
+            string html = _markdownRenderer.Render(renderableMarkdown);
             if (html.Length > MaximumBrowserDocumentLength)
             {
                 _pendingHtml = null;
@@ -401,7 +410,13 @@ public sealed class ResearchForm : Form
     /// </summary>
     private void browserView_NavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
     {
-        if (e.Uri.StartsWith("about:blank", StringComparison.OrdinalIgnoreCase))
+        if (TryNavigateInternalNote(e))
+        {
+            return;
+        }
+
+        if (string.Equals(e.Uri, "about:blank", StringComparison.OrdinalIgnoreCase)
+            || e.Uri.StartsWith("about:blank#", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -437,6 +452,44 @@ public sealed class ResearchForm : Form
         {
             _statusLabel.Text = "Der externe Link konnte nicht geöffnet werden.";
         }
+    }
+
+    /// <summary>
+    /// Erkennt das interne Recherche-Schema und öffnet ausschließlich eine bereits geladene Notiz.
+    /// </summary>
+    private bool TryNavigateInternalNote(CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (!e.Uri.StartsWith(
+                ResearchMarkdownService.InternalNoteUriPrefix,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Interne Links dürfen niemals vom eingebetteten Browser selbst verarbeitet werden.
+        e.Cancel = true;
+        string encodedRelativePath = e.Uri[ResearchMarkdownService.InternalNoteUriPrefix.Length..];
+
+        string relativePath;
+        try
+        {
+            relativePath = Uri.UnescapeDataString(encodedRelativePath);
+        }
+        catch (UriFormatException)
+        {
+            _statusLabel.Text = "Der interne Wiki-Link ist ungültig.";
+            return true;
+        }
+
+        NoteDocument? targetNote = FindLoadedNote(relativePath);
+        if (targetNote is null)
+        {
+            _statusLabel.Text = "Das Ziel des Wiki-Links ist nicht mehr im aktuellen Vault vorhanden.";
+            return true;
+        }
+
+        NavigateTo(targetNote);
+        return true;
     }
 
     /// <summary>

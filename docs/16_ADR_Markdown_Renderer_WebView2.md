@@ -54,7 +54,13 @@ WinForms-Projekten die vom WebView2-Paket zusätzlich eingetragene, unbenutzte
 WPF-Referenz. Dadurch bleibt der Release-Publish frei vom bekannten
 `WindowsBase`-Versionskonflikt, ohne WPF in die Anwendung aufzunehmen.
 
-Wiki-Links erscheinen im ersten Renderer-Schritt als Text. Ihre anklickbare
-Darstellung wird anschließend auf Basis des vorhandenen `WikiLinkParser` und
-`LinkResolver` ergänzt; der Renderer darf keine konkurrierende
-Linkauflösungslogik einführen.
+Der UI-unabhängige `ResearchMarkdownService` verwendet den vorhandenen
+`WikiLinkParser` und `LinkResolver`. Nur eindeutig aufgelöste Wiki-Links
+werden vor dem Rendern in Markdown-Links mit dem internen Schema
+`sasd-note:` umgewandelt. Fehlende und mehrdeutige Ziele bleiben sichtbar in
+ihrer ursprünglichen Wiki-Link-Syntax.
+
+WebView2 bricht die Browsernavigation für dieses interne Schema ab und öffnet
+ausschließlich eine bereits im Workspace geladene Notiz. Der Markdig-Renderer
+kennt dadurch weder Vaults noch Linkauflösung, und die UI führt keine zweite
+fachliche Auflösungsregel ein.

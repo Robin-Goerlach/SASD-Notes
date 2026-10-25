@@ -42,7 +42,7 @@ Geplante Mindestfunktionen:
 - Umschalten zwischen Bearbeiten und Lesen,
 - optional eine geteilte Editor- und Vorschauansicht,
 - Vorwärts- und Zurücknavigation innerhalb des Vaults,
-- anklickbare Wiki-Links,
+- anklickbare Wiki-Links für eindeutig aufgelöste Ziele (umgesetzt),
 - Sprünge zu Überschriften,
 - sichtbare Suchtreffer im gelesenen Dokument,
 - Backlinks und Outline als Navigationshilfen,

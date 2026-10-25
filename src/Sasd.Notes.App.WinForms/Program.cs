@@ -49,6 +49,7 @@ internal static class Program
         var backlinkService = new BacklinkService(linkResolver);
         var editorFormattingService = new EditorFormattingService();
         var markdownRenderer = new MarkdigMarkdownHtmlRenderer();
+        var researchMarkdownService = new ResearchMarkdownService(wikiLinkParser, linkResolver);
 
         var workspaceService = new NotesWorkspaceService(
             vaultRepository,
@@ -64,7 +65,8 @@ internal static class Program
             workspaceService,
             editorFormattingService,
             startupTarget,
-            markdownRenderer));
+            markdownRenderer,
+            researchMarkdownService));
         return 0;
     }
 }

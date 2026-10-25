@@ -14,6 +14,7 @@ public partial class MainForm : Form
     private readonly NotesWorkspaceService _workspaceService;
     private readonly EditorFormattingService _editorFormattingService;
     private readonly IMarkdownHtmlRenderer? _markdownRenderer;
+    private readonly ResearchMarkdownService? _researchMarkdownService;
     private readonly StartupTarget? _startupTarget;
     private NoteDocument? _currentNote;
     private bool _suppressEditorEvents;
@@ -36,16 +37,19 @@ public partial class MainForm : Form
     /// <param name="editorFormattingService">UI-unabhängige Markdown-Formatierung.</param>
     /// <param name="startupTarget">Explizites Startziel oder <see langword="null"/> für das bisherige Startverhalten.</param>
     /// <param name="markdownRenderer">Optionaler HTML-Renderer für die Rechercheansicht.</param>
+    /// <param name="researchMarkdownService">Optionaler Dienst für aufgelöste Wiki-Links in der Rechercheansicht.</param>
     public MainForm(
         NotesWorkspaceService workspaceService,
         EditorFormattingService editorFormattingService,
         StartupTarget? startupTarget = null,
-        IMarkdownHtmlRenderer? markdownRenderer = null)
+        IMarkdownHtmlRenderer? markdownRenderer = null,
+        ResearchMarkdownService? researchMarkdownService = null)
     {
         _workspaceService = workspaceService;
         _editorFormattingService = editorFormattingService;
         _startupTarget = startupTarget;
         _markdownRenderer = markdownRenderer;
+        _researchMarkdownService = researchMarkdownService;
         InitializeComponent();
         AddAdditionalFormattingButtons();
 
@@ -1252,7 +1256,11 @@ public partial class MainForm : Form
             return;
         }
 
-        _researchForm = new ResearchForm(_workspaceService, _markdownRenderer, OpenNoteFromResearchAsync);
+        _researchForm = new ResearchForm(
+            _workspaceService,
+            _markdownRenderer,
+            _researchMarkdownService,
+            OpenNoteFromResearchAsync);
         _researchForm.FormClosed += (_, _) => _researchForm = null;
         _researchForm.RefreshWorkspace(_currentNote);
         _researchForm.Show(this);

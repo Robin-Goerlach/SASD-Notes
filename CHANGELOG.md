@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Eindeutig aufgelöste Wiki-Links sind in der formatierten Rechercheansicht anklickbar und verwenden denselben Parser und Resolver wie Editor und Backlinks. Ein UI-unabhängiger Application-Dienst bereitet sichere interne Markdown-Links vor; fehlende, mehrdeutige und in Code enthaltene Links bleiben unverändert sichtbar. Navigation läuft über den bestehenden Rechercheverlauf und verlässt den geladenen Vault nicht.
+
 - Die Rechercheansicht rendert Markdown jetzt über einen UI-unabhängigen Vertrag mit Markdig und zeigt das Ergebnis sicher eingeschränkt in WebView2. Rohes HTML, Skripte, Hostobjekte und automatische Navigation sind deaktiviert; CSP, bestätigte externe Links, Größenbegrenzung und Quelltext-Fallback schützen die lokale Arbeitsweise. Renderer-Tests und ADR ergänzt.
 
 - Erste eigenständige Rechercheansicht ergänzt, ohne das bestehende Editorlayout zu verändern. Das separate Fenster durchsucht den geladenen Arbeitsstand, zeigt Notizen schreibgeschützt, besitzt einen getesteten Vorwärts-/Rückwärtsverlauf und öffnet Notizen kontrolliert über die Dirty-State-Prüfung im Editor. Der spätere formatierte Renderer bleibt architektonisch getrennt.
