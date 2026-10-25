@@ -23,6 +23,16 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Verify pinned .NET 8 SDK
+        shell: pwsh
+        run: |
+          # Die Solution muss auch auf Runnern mit neueren vorinstallierten SDKs reproduzierbar .NET 8 verwenden.
+          $sdkVersion = dotnet --version
+          Write-Host "Selected .NET SDK: $sdkVersion"
+          if (-not $sdkVersion.StartsWith("8.0.", [System.StringComparison]::Ordinal)) {
+            throw "Expected a .NET 8 SDK, but dotnet selected $sdkVersion."
+          }
+
       - name: Clean solution
         run: dotnet clean Sasd.Notes.sln --configuration Release
 
