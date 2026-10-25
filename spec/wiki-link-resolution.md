@@ -46,3 +46,12 @@ Quellordner-relative Pfade mit `.` oder `..`, Abschnittsanker und
 Blockreferenzen sind kein Bestandteil dieser Auflösungsregeln.
 
 Der Resolver liest keine Dateien und verwendet keine UI-Steuerelemente.
+
+## Übersicht ausgehender Links
+
+Die Übersicht erhält jedes vom gemeinsamen Parser erkannte Linkvorkommen in
+Dokumentreihenfolge. Ziel, optionaler Alias und ursprünglicher Rohtext bleiben
+erhalten. Der gemeinsame Resolver ergänzt nur bei eindeutiger Auflösung den
+relativen Zielpfad. Fehlende und mehrdeutige Ziele gelten beide als nicht
+aufgelöst und dürfen nicht willkürlich navigiert werden. Die Oberfläche darf
+diese fachliche Entscheidung nicht durch eine eigene Namenssuche ersetzen.

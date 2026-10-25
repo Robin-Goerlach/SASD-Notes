@@ -17,6 +17,20 @@ public static class ListItemFormatting
     }
 
     /// <summary>
+    /// Formatiert einen ausgehenden Wiki-Link und kennzeichnet nicht aufgelöste Ziele.
+    /// </summary>
+    /// <param name="link">Fachlicher Linkeintrag aus der Application-Schicht.</param>
+    /// <returns>Einzeilige Darstellung für die Linkliste.</returns>
+    public static string FormatOutgoingLink(OutgoingLinkInfo link)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+
+        return link.IsResolved
+            ? $"[Ziel] {link.DisplayText} — {link.ResolvedRelativePath}"
+            : $"[Nicht aufgelöst] {link.DisplayText} — {link.Target}";
+    }
+
+    /// <summary>
     /// Formatiert einen Suchtreffer mit verständlichen deutschen Fundstellen-Kategorien.
     /// </summary>
     /// <param name="hit">Fachlicher Suchtreffer aus der Application-Schicht.</param>

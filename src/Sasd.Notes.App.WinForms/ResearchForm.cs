@@ -30,7 +30,9 @@ public sealed class ResearchForm : Form
     private readonly ListBox _searchResults = new();
     private readonly ListBox _outlineItems = new();
     private readonly ListBox _backlinkItems = new() { Name = "listBoxResearchBacklinks" };
+    private readonly ListBox _outgoingLinkItems = new() { Name = "listBoxResearchOutgoingLinks" };
     private readonly TabPage _backlinksTabPage = new("Backlinks");
+    private readonly TabPage _linksTabPage = new("Links");
     private readonly Label _documentHeader = new();
     private readonly WebView2 _browserView = new();
     private readonly RichTextBox _fallbackView = new();
@@ -201,14 +203,34 @@ public sealed class ResearchForm : Form
         backlinkPanel.Controls.Add(_backlinkItems);
         backlinkPanel.Controls.Add(backlinkLabel);
 
-        // Gliederung und Rückverweise teilen sich den unteren Navigationsbereich.
-        // Beide verwenden ausschließlich bereits berechnete Application-Ergebnisse.
+        var linksPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
+        var linksLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 28,
+            Text = "Ausgehende Wiki-Links; nicht aufgelöste Ziele bleiben sichtbar",
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        _outgoingLinkItems.Dock = DockStyle.Fill;
+        _outgoingLinkItems.IntegralHeight = false;
+        _outgoingLinkItems.Enabled = false;
+        _outgoingLinkItems.FormattingEnabled = true;
+        _outgoingLinkItems.Format += outgoingLinkItems_Format;
+        _outgoingLinkItems.DoubleClick += (_, _) => NavigateToSelectedOutgoingLink();
+        _outgoingLinkItems.KeyDown += outgoingLinkItems_KeyDown;
+        linksPanel.Controls.Add(_outgoingLinkItems);
+        linksPanel.Controls.Add(linksLabel);
+
+        // Alle dokumentbezogenen Wege teilen sich einen kompakten Navigationsbereich.
+        // Die fachlichen Ergebnisse stammen vollständig aus der Application-Schicht.
         var documentNavigationTabs = new TabControl { Dock = DockStyle.Fill };
         var outlineTabPage = new TabPage("Gliederung");
         outlineTabPage.Controls.Add(outlinePanel);
         _backlinksTabPage.Controls.Add(backlinkPanel);
+        _linksTabPage.Controls.Add(linksPanel);
         documentNavigationTabs.TabPages.Add(outlineTabPage);
         documentNavigationTabs.TabPages.Add(_backlinksTabPage);
+        documentNavigationTabs.TabPages.Add(_linksTabPage);
 
         // Suchtreffer und dokumentbezogene Navigation bleiben in einer gemeinsamen
         // Spalte. Das bestehende Editorfenster wird dadurch nicht verändert.
@@ -397,6 +419,7 @@ public sealed class ResearchForm : Form
         _fallbackView.Text = note.Content;
         PopulateOutline(note);
         PopulateBacklinks(note);
+        PopulateOutgoingLinks(note);
         _openInEditorButton.Enabled = true;
         _pendingSearchHighlight = LocateActiveSearchHit(note);
 
@@ -669,6 +692,9 @@ public sealed class ResearchForm : Form
         _backlinkItems.Items.Clear();
         _backlinkItems.Enabled = false;
         _backlinksTabPage.Text = "Backlinks";
+        _outgoingLinkItems.Items.Clear();
+        _outgoingLinkItems.Enabled = false;
+        _linksTabPage.Text = "Links";
         _pendingHtml = null;
         _activeSearchHit = null;
         _pendingSearchHighlight = null;
@@ -715,6 +741,54 @@ public sealed class ResearchForm : Form
 
         _backlinkItems.Enabled = backlinks.Count > 0;
         _backlinksTabPage.Text = $"Backlinks ({backlinks.Count})";
+    }
+
+    /// <summary>
+    /// Füllt die Liste ausgehender Links aus dem aktuellen In-Memory-Arbeitsstand.
+    /// </summary>
+    private void PopulateOutgoingLinks(NoteDocument note)
+    {
+        IReadOnlyList<OutgoingLinkInfo> links = _workspaceService.GetOutgoingLinks(note);
+
+        _outgoingLinkItems.BeginUpdate();
+        _outgoingLinkItems.Items.Clear();
+        foreach (OutgoingLinkInfo link in links)
+        {
+            _outgoingLinkItems.Items.Add(link);
+        }
+        _outgoingLinkItems.EndUpdate();
+
+        _outgoingLinkItems.Enabled = links.Count > 0;
+        int unresolvedCount = links.Count(link => !link.IsResolved);
+        _linksTabPage.Text = unresolvedCount == 0
+            ? $"Links ({links.Count})"
+            : $"Links ({links.Count}, {unresolvedCount} offen)";
+    }
+
+    /// <summary>
+    /// Öffnet ein eindeutig aufgelöstes ausgehendes Ziel im Rechercheverlauf.
+    /// </summary>
+    private void NavigateToSelectedOutgoingLink()
+    {
+        if (_outgoingLinkItems.SelectedItem is not OutgoingLinkInfo link)
+        {
+            return;
+        }
+
+        if (!link.IsResolved || link.ResolvedRelativePath is null)
+        {
+            _statusLabel.Text = $"Wiki-Link nicht aufgelöst: {link.Target}";
+            return;
+        }
+
+        NoteDocument? targetNote = FindLoadedNote(link.ResolvedRelativePath);
+        if (targetNote is null)
+        {
+            _statusLabel.Text = "Das Ziel des Wiki-Links gehört nicht mehr zum aktuellen Vault.";
+            return;
+        }
+
+        NavigateTo(targetNote);
     }
 
     /// <summary>
@@ -858,6 +932,31 @@ public sealed class ResearchForm : Form
         }
 
         ExecuteSearch();
+        e.SuppressKeyPress = true;
+    }
+
+    /// <summary>
+    /// Formatiert aufgelöste und offene Linkziele einheitlich.
+    /// </summary>
+    private void outgoingLinkItems_Format(object? sender, ListControlConvertEventArgs e)
+    {
+        if (e.ListItem is OutgoingLinkInfo link)
+        {
+            e.Value = ListItemFormatting.FormatOutgoingLink(link);
+        }
+    }
+
+    /// <summary>
+    /// Öffnet einen ausgehenden Link auch tastaturbedient.
+    /// </summary>
+    private void outgoingLinkItems_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode != Keys.Enter)
+        {
+            return;
+        }
+
+        NavigateToSelectedOutgoingLink();
         e.SuppressKeyPress = true;
     }
 

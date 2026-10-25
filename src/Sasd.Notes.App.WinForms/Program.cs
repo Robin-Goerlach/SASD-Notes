@@ -47,6 +47,7 @@ internal static class Program
         var settingsRepository = new JsonSettingsRepository();
         var searchService = new SearchService();
         var backlinkService = new BacklinkService(linkResolver);
+        var outgoingLinkService = new OutgoingLinkService(linkResolver);
         var editorFormattingService = new EditorFormattingService();
         var markdownRenderer = new MarkdigMarkdownHtmlRenderer();
         var researchMarkdownService = new ResearchMarkdownService(wikiLinkParser, linkResolver);
@@ -58,7 +59,8 @@ internal static class Program
             outlineParser,
             linkResolver,
             searchService,
-            backlinkService);
+            backlinkService,
+            outgoingLinkService);
 
         // Der vollqualifizierte Name vermeidet die Kollision mit dem Namespace Sasd.Notes.Application.
         System.Windows.Forms.Application.Run(new MainForm(

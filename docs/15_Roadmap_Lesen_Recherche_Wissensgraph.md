@@ -66,7 +66,7 @@ Geplante Schritte:
 - Such- und Navigationsverlauf bereitstellen,
 - Treffer ohne Verlust der aktuellen Arbeitsposition öffnen,
 - Backlinks, ausgehende Links und nicht aufgelöste Links gemeinsam nutzbar
-  machen,
+  machen (umgesetzt),
 - später Filter nach Ordnern, Tags oder weiteren Metadaten ergänzen.
 
 Ein Suchindex ist erst sinnvoll, wenn reale Vault-Größen die einfache Suche

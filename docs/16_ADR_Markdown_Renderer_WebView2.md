@@ -109,3 +109,15 @@ Die Rechercheansicht ruft Rückverweise ausschließlich über
 Schicht zeigt `BacklinkInfo`-Einträge an und navigiert anhand des gelieferten
 relativen Quellpfads über denselben `ResearchNavigationService`, der auch
 Suchtreffer und Wiki-Links in den Vorwärts-/Rückwärtsverlauf übernimmt.
+
+## Ausgehende und nicht aufgelöste Links
+
+`OutgoingLinkService` erzeugt aus den bereits geparsten Wiki-Links eine
+UI-unabhängige Liste in Dokumentreihenfolge. Für jedes Vorkommen bleiben
+Zielangabe, Alias und Rohtext erhalten; der gemeinsame `ILinkResolver` ergänzt
+nur bei eindeutiger Auflösung den relativen Zielpfad. Fehlende und mehrdeutige
+Ziele bleiben damit sichtbar, ohne eine falsche Navigation anzubieten.
+
+Die WinForms-Schicht formatiert diese Ergebnisse, navigiert ausschließlich zu
+bereits geladenen relativen Zielpfaden und meldet offene Ziele in der
+Statusleiste. Sie parst oder löst keine Wiki-Link-Syntax selbst auf.

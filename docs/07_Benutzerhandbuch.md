@@ -122,10 +122,15 @@ Suchtreffer zeigen Titel, Pfad und einen kurzen Kontextausschnitt.
 Der Backlinks-Bereich zeigt, welche Notizen auf die aktuelle Notiz verweisen.  
 Das ist hilfreich für Wissensnetze, Projektdokumentation und Zusammenhänge zwischen Themen.
 
-In der separaten Rechercheansicht stehen **Gliederung** und **Backlinks** als
-Registerkarten unterhalb der Suchtreffer bereit. Die Zahl im Backlink-Reiter
-zeigt die Anzahl der verweisenden Notizen. Doppelklick oder Eingabetaste öffnet
-die ausgewählte Quellnotiz; **Zurück** und **Vor** behalten den Rechercheverlauf.
+In der separaten Rechercheansicht stehen **Gliederung**, **Backlinks** und
+**Links** als Registerkarten unterhalb der Suchtreffer bereit. Die Zahl im
+Backlink-Reiter zeigt die Anzahl der verweisenden Notizen. Der Link-Reiter
+enthält alle ausgehenden Wiki-Links und nennt zusätzlich die Zahl offener Ziele.
+
+Doppelklick oder Eingabetaste öffnet eine ausgewählte Quell- beziehungsweise
+Zielnotiz. Nicht aufgelöste Ziele bleiben sichtbar und erzeugen einen Hinweis,
+statt eine beliebige Notiz zu öffnen. **Zurück** und **Vor** behalten den
+Rechercheverlauf.
 
 ---
 

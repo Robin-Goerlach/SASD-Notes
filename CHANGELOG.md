@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Die Rechercheansicht zeigt ausgehende Wiki-Links jetzt gemeinsam als aufgelöste Ziele oder ausdrücklich offene Einträge. Ein neuer UI-unabhängiger `OutgoingLinkService` verwendet den bestehenden Resolver, erhält Alias und Dokumentreihenfolge und ordnet mehrdeutige Ziele niemals willkürlich zu. Aufgelöste Links sind per Doppelklick oder Eingabetaste navigierbar; Fach- und Windows-Integrationstests decken Alias, fehlende und mehrdeutige Ziele ab.
+
 - Backlinks sind jetzt in einer eigenen Registerkarte der Rechercheansicht sichtbar und per Doppelklick oder Eingabetaste navigierbar. Berechnung und Zielauflösung bleiben in `NotesWorkspaceService` und `BacklinkService`; die UI übernimmt nur die gelieferten Quellpfade in denselben Vorwärts-/Rückwärtsverlauf. Ein Windows-Integrationstest prüft die Anzeige mit einem echten temporären Zwei-Notizen-Vault.
 
 - Suchtreffer tragen jetzt eine UI-unabhängige, kombinierbare Klassifikation für Titel, relativen Pfad und Inhalt. Die Rechercheliste zeigt diese Fundstellen als verständliche Kategorien, ohne Scores oder Suchregeln in WinForms nachzubauen. Einzel- und Mehrfachtreffer, Score-Erhalt und die UI-Formatierung sind automatisiert geprüft.

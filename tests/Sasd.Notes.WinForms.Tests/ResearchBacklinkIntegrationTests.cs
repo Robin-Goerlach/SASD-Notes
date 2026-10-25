@@ -8,12 +8,12 @@ using Sasd.Notes.Infrastructure.Repositories;
 namespace Sasd.Notes.WinForms.Tests;
 
 /// <summary>
-/// Prüft die Übergabe fachlich berechneter Backlinks an die Rechercheansicht.
+/// Prüft die Übergabe fachlich berechneter ein- und ausgehender Links an die Rechercheansicht.
 /// </summary>
 internal static class ResearchBacklinkIntegrationTests
 {
     /// <summary>
-    /// Erstellt einen echten temporären Vault und prüft die sichtbare Rückverweisliste.
+    /// Erstellt einen echten temporären Vault und prüft Rückverweise sowie offene und aufgelöste Ziele.
     /// </summary>
     public static void Run()
     {
@@ -26,7 +26,7 @@ internal static class ResearchBacklinkIntegrationTests
         {
             File.WriteAllText(
                 Path.Combine(vaultPath, "Quelle.md"),
-                "# Quelle\n\nSiehe [[Ziel]].");
+                "# Quelle\n\nSiehe [[Ziel|Zielalias]] und [[Fehlt]].");
             File.WriteAllText(
                 Path.Combine(vaultPath, "Ziel.md"),
                 "# Ziel");
@@ -45,6 +45,7 @@ internal static class ResearchBacklinkIntegrationTests
             workspace.InitializeAsync().GetAwaiter().GetResult();
             workspace.OpenVaultAsync(vaultPath).GetAwaiter().GetResult();
             NoteDocument target = workspace.LoadedNotes.Single(note => note.Title == "Ziel");
+            NoteDocument source = workspace.LoadedNotes.Single(note => note.Title == "Quelle");
 
             using var form = new ResearchForm(
                 workspace,
@@ -64,6 +65,32 @@ internal static class ResearchBacklinkIntegrationTests
                 "Der sichtbare Rückverweis muss auf die richtige Quellnotiz zeigen.");
             Require(backlinks.Enabled,
                 "Eine nicht leere Backlinkliste muss per Maus und Tastatur bedienbar sein.");
+
+            form.RefreshWorkspace(source);
+            ListBox outgoingLinks = form.Controls
+                .Find("listBoxResearchOutgoingLinks", searchAllChildren: true)
+                .OfType<ListBox>()
+                .Single();
+            Require(outgoingLinks.Items.Count == 2,
+                "Aufgelöste und offene ausgehende Links müssen gemeinsam sichtbar sein.");
+            OutgoingLinkInfo resolvedLink = outgoingLinks.Items
+                .OfType<OutgoingLinkInfo>()
+                .Single(link => link.IsResolved);
+            OutgoingLinkInfo unresolvedLink = outgoingLinks.Items
+                .OfType<OutgoingLinkInfo>()
+                .Single(link => !link.IsResolved);
+            Require(resolvedLink.ResolvedRelativePath == "Ziel.md",
+                "Der eindeutige Link muss sein navigierbares Ziel behalten.");
+            Require(unresolvedLink.Target == "Fehlt",
+                "Ein fehlendes Ziel muss ausdrücklich in der Linkliste verbleiben.");
+            Require(ListItemFormatting.FormatOutgoingLink(resolvedLink)
+                    .StartsWith("[Ziel]", StringComparison.Ordinal),
+                "Ein aufgelöstes Ziel muss in der Oberfläche eindeutig gekennzeichnet sein.");
+            Require(ListItemFormatting.FormatOutgoingLink(unresolvedLink)
+                    .StartsWith("[Nicht aufgelöst]", StringComparison.Ordinal),
+                "Ein offenes Ziel muss in der Oberfläche eindeutig gekennzeichnet sein.");
+            Require(outgoingLinks.Enabled,
+                "Auch eine gemischte Linkliste muss per Maus und Tastatur bedienbar sein.");
         }
         finally
         {

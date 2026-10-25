@@ -22,6 +22,7 @@ public sealed class NotesWorkspaceService
     private readonly ILinkResolver _linkResolver;
     private readonly SearchService _searchService;
     private readonly BacklinkService _backlinkService;
+    private readonly OutgoingLinkService _outgoingLinkService;
     private AppSettings _settings = new();
     private bool _isOpeningVault;
     private int _activeWriteOperations;
@@ -40,7 +41,8 @@ public sealed class NotesWorkspaceService
         IOutlineParser outlineParser,
         ILinkResolver linkResolver,
         SearchService searchService,
-        BacklinkService backlinkService)
+        BacklinkService backlinkService,
+        OutgoingLinkService? outgoingLinkService = null)
     {
         _vaultRepository = vaultRepository;
         _settingsRepository = settingsRepository;
@@ -49,6 +51,7 @@ public sealed class NotesWorkspaceService
         _linkResolver = linkResolver;
         _searchService = searchService;
         _backlinkService = backlinkService;
+        _outgoingLinkService = outgoingLinkService ?? new OutgoingLinkService(linkResolver);
     }
 
     /// <summary>
@@ -431,6 +434,19 @@ public sealed class NotesWorkspaceService
     {
         NoteDocument currentSnapshot = CreateWorkingSnapshot(note);
         return _backlinkService.GetBacklinks(currentSnapshot, ReplaceOrInjectSnapshot(currentSnapshot));
+    }
+
+    /// <summary>
+    /// Ermittelt aufgelöste und nicht aufgelöste ausgehende Wiki-Links einer Notiz.
+    /// </summary>
+    /// <param name="note">Notiz, deren aktueller Arbeitsstand ausgewertet werden soll.</param>
+    /// <returns>Ausgehende Links in ihrer ursprünglichen Dokumentreihenfolge.</returns>
+    public IReadOnlyList<OutgoingLinkInfo> GetOutgoingLinks(NoteDocument note)
+    {
+        NoteDocument currentSnapshot = CreateWorkingSnapshot(note);
+        return _outgoingLinkService.GetOutgoingLinks(
+            currentSnapshot,
+            ReplaceOrInjectSnapshot(currentSnapshot));
     }
 
     /// <summary>
