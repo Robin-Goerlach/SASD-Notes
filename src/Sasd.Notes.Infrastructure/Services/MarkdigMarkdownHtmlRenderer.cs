@@ -77,6 +77,13 @@ public sealed class MarkdigMarkdownHtmlRenderer : IMarkdownHtmlRenderer
             a {
               color: #0969da;
             }
+            mark.sasd-search-hit {
+              padding: 0.05em 0.15em;
+              color: #24292f;
+              background: #fff08a;
+              border: 1px solid #d4b106;
+              border-radius: 3px;
+            }
             img {
               max-width: 100%;
             }
@@ -100,6 +107,11 @@ public sealed class MarkdigMarkdownHtmlRenderer : IMarkdownHtmlRenderer
               }
               a {
                 color: #58a6ff;
+              }
+              mark.sasd-search-hit {
+                color: #ffffff;
+                background: #7a5d00;
+                border-color: #c9a227;
               }
             }
           </style>

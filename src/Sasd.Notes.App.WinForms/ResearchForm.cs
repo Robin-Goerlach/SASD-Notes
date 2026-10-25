@@ -38,6 +38,8 @@ public sealed class ResearchForm : Form
     };
 
     private string? _pendingHtml;
+    private SearchHit? _activeSearchHit;
+    private (int Start, int Length)? _pendingSearchHighlight;
     private bool _browserReady;
     private bool _browserUnavailable;
 
@@ -226,6 +228,7 @@ public sealed class ResearchForm : Form
             _browserView.CoreWebView2.Settings.AreHostObjectsAllowed = false;
             _browserView.CoreWebView2.Settings.AreDevToolsEnabled = false;
             _browserView.CoreWebView2.NavigationStarting += browserView_NavigationStarting;
+            _browserView.CoreWebView2.NavigationCompleted += browserView_NavigationCompleted;
             _browserReady = true;
 
             if (_pendingHtml is not null)
@@ -281,14 +284,17 @@ public sealed class ResearchForm : Form
             return;
         }
 
-        NavigateTo(note);
+        NavigateTo(note, hit);
     }
 
     /// <summary>
     /// Nimmt eine Notiz in den Rechercheverlauf auf und zeigt ihren aktuellen Arbeitsstand.
     /// </summary>
-    private void NavigateTo(NoteDocument note)
+    /// <param name="note">Anzuzeigende geladene Notiz.</param>
+    /// <param name="searchHit">Optionaler Suchtreffer, der im Dokument hervorgehoben werden soll.</param>
+    private void NavigateTo(NoteDocument note, SearchHit? searchHit = null)
     {
+        _activeSearchHit = searchHit;
         _navigationService.NavigateTo(note.RelativePath);
         DisplayDocument(note);
         UpdateNavigationButtons();
@@ -303,6 +309,9 @@ public sealed class ResearchForm : Form
         {
             return;
         }
+
+        _activeSearchHit = null;
+        _pendingSearchHighlight = null;
 
         NoteDocument? note = FindLoadedNote(relativePath);
         if (note is null)
@@ -326,13 +335,26 @@ public sealed class ResearchForm : Form
         _documentHeader.Text = note.RelativePath;
         _fallbackView.Text = note.Content;
         _openInEditorButton.Enabled = true;
+        _pendingSearchHighlight = LocateActiveSearchHit(note);
 
         if (_markdownRenderer is null || _browserUnavailable)
         {
             ShowFallback();
-            _statusLabel.Text = note.IsDirty
-                ? "Quelltextansicht mit ungespeicherten Änderungen."
-                : "Schreibgeschützte Markdown-Quelltextansicht.";
+            if (_activeSearchHit is not null && _pendingSearchHighlight is null)
+            {
+                _statusLabel.Text = "Die Notiz wurde über Titel oder Pfad gefunden; im Inhalt gibt es keine markierbare Fundstelle.";
+            }
+            else if (_pendingSearchHighlight is not null)
+            {
+                _statusLabel.Text = "Suchtreffer in der schreibgeschützten Markdown-Quelltextansicht markiert.";
+            }
+            else
+            {
+                _statusLabel.Text = note.IsDirty
+                    ? "Quelltextansicht mit ungespeicherten Änderungen."
+                    : "Schreibgeschützte Markdown-Quelltextansicht.";
+            }
+
             return;
         }
 
@@ -362,9 +384,19 @@ public sealed class ResearchForm : Form
                 ShowFallback();
             }
 
-            _statusLabel.Text = note.IsDirty
-                ? "Formatierte Ansicht des ungespeicherten Arbeitsstands."
-                : "Formatierte, schreibgeschützte Markdown-Ansicht.";
+            if (_activeSearchHit is not null && _pendingSearchHighlight is null)
+            {
+                _statusLabel.Text = "Die Notiz wurde über Titel oder Pfad gefunden; im Inhalt gibt es keine markierbare Fundstelle.";
+            }
+            else
+            {
+                string baseStatus = note.IsDirty
+                    ? "Formatierte Ansicht des ungespeicherten Arbeitsstands."
+                    : "Formatierte, schreibgeschützte Markdown-Ansicht.";
+                _statusLabel.Text = _pendingSearchHighlight is null
+                    ? baseStatus
+                    : baseStatus + " Der Suchtreffer wird hervorgehoben.";
+            }
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
         {
@@ -391,6 +423,19 @@ public sealed class ResearchForm : Form
     {
         _browserView.Visible = false;
         _fallbackView.Visible = true;
+
+        // Auch ohne WebView2 bleibt ein Inhaltstreffer direkt auffindbar.
+        if (_pendingSearchHighlight is { } highlight
+            && highlight.Start >= 0
+            && highlight.Start <= _fallbackView.TextLength - highlight.Length)
+        {
+            _fallbackView.Select(highlight.Start, highlight.Length);
+            _fallbackView.ScrollToCaret();
+        }
+        else
+        {
+            _fallbackView.Select(0, 0);
+        }
     }
 
     /// <summary>
@@ -403,6 +448,55 @@ public sealed class ResearchForm : Form
         _pendingHtml = null;
         ShowFallback();
         _statusLabel.Text = message;
+    }
+
+    /// <summary>
+    /// Markiert nach abgeschlossener interner Dokumentnavigation den ausgewählten Inhaltstreffer.
+    /// </summary>
+    private async void browserView_NavigationCompleted(
+        object? sender,
+        CoreWebView2NavigationCompletedEventArgs e)
+    {
+        if (!e.IsSuccess || _pendingSearchHighlight is not { } highlight)
+        {
+            return;
+        }
+
+        string matchedText = _fallbackView.Text.Substring(highlight.Start, highlight.Length);
+        try
+        {
+            // ExecuteScriptAsync führt ausschließlich das feste Hostskript aus. Skripte aus
+            // Markdown bleiben durch WebView2-Einstellungen und CSP vollständig deaktiviert.
+            string result = await _browserView.CoreWebView2.ExecuteScriptAsync(
+                ResearchHighlightScriptBuilder.Build(matchedText));
+            _statusLabel.Text = string.Equals(result, "true", StringComparison.Ordinal)
+                ? "Suchtreffer im formatierten Dokument hervorgehoben."
+                : "Die Fundstelle liegt in Markdown-Steuerzeichen oder über mehreren Darstellungsbereichen und konnte nicht markiert werden.";
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or COMException)
+        {
+            _statusLabel.Text = "Die Suchtreffer-Hervorhebung ist derzeit nicht verfügbar.";
+        }
+    }
+
+    /// <summary>
+    /// Lokalisiert den ausgewählten Treffer erneut im aktuellen Arbeitsstand der angezeigten Notiz.
+    /// </summary>
+    private (int Start, int Length)? LocateActiveSearchHit(NoteDocument note)
+    {
+        if (_activeSearchHit is null
+            || !string.Equals(
+                _activeSearchHit.RelativePath,
+                note.RelativePath,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        // Zwischen Suche und Öffnen kann der Editorinhalt geändert worden sein.
+        // Der gemeinsame Locator bevorzugt die alte Position und sucht andernfalls
+        // das nächste weiterhin vorhandene Vorkommen.
+        return SearchHitLocator.Locate(_activeSearchHit, note.Content);
     }
 
     /// <summary>
@@ -500,6 +594,8 @@ public sealed class ResearchForm : Form
         _documentHeader.Text = "Keine Notiz ausgewählt";
         _fallbackView.Clear();
         _pendingHtml = null;
+        _activeSearchHit = null;
+        _pendingSearchHighlight = null;
         ShowFallback();
         _openInEditorButton.Enabled = false;
         _statusLabel.Text = message;

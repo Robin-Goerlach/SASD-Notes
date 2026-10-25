@@ -50,6 +50,7 @@ internal static class Program
             RunTextPositionMappingTest();
             RunDelayedSettingsStartupTest();
             RunExternalChangeTimerTest();
+            ResearchHighlightScriptBuilderTests.Run();
             Console.WriteLine("Alle WinForms-Schließ-, Vault-Lade- und Startzielprüfungen wurden erfolgreich ausgeführt.");
             return 0;
         }

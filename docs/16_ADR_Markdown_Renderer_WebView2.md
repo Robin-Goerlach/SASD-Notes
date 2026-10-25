@@ -33,7 +33,12 @@ keine unkontrollierte Netz- oder Skriptausführung ermöglichen.
 
 - Rohes HTML aus Markdown wird im Renderer deaktiviert.
 - Jedes Dokument erhält eine restriktive Content-Security-Policy.
-- JavaScript, Hostobjekte und Webnachrichten sind in WebView2 deaktiviert.
+- JavaScript aus Dokumenten, Hostobjekte und Webnachrichten sind in WebView2
+  deaktiviert.
+- Für die Suchhervorhebung führt die Anwendung ausschließlich ein festes,
+  intern erzeugtes Hostskript über `ExecuteScriptAsync` aus. Der Suchtext wird
+  davor als JSON-Zeichenfolge kodiert und ausschließlich über `textContent`
+  in den DOM übernommen.
 - Automatische Navigation außerhalb des erzeugten `about:blank`-Dokuments wird
   abgebrochen.
 - HTTP-, HTTPS- und Mail-Links werden nur nach einem Benutzerdialog an das
@@ -64,3 +69,17 @@ WebView2 bricht die Browsernavigation für dieses interne Schema ab und öffnet
 ausschließlich eine bereits im Workspace geladene Notiz. Der Markdig-Renderer
 kennt dadurch weder Vaults noch Linkauflösung, und die UI führt keine zweite
 fachliche Auflösungsregel ein.
+
+
+## Suchtreffer-Hervorhebung
+
+Inhaltstreffer werden nicht in den Markdown-Quelltext hineinformatiert. Der
+bereits vorhandene `SearchHitLocator` lokalisiert einen Treffer erneut im
+aktuellen Arbeitsstand. Ein kleiner WinForms-Adapter markiert danach den ersten
+exakt passenden sichtbaren Textknoten mit einem semantischen `mark`-Element
+und scrollt ihn in die Mitte der Leseansicht.
+
+Liegt ein Treffer ausschließlich in Markdown-Steuerzeichen oder über mehreren
+HTML-Textknoten, bleibt das Dokument unverändert und die Statusleiste erklärt,
+dass keine Markierung möglich war. Der Quelltext-Fallback markiert weiterhin
+den exakt lokalisierten UTF-16-Bereich direkt im `RichTextBox`-Control.

@@ -44,7 +44,7 @@ Geplante Mindestfunktionen:
 - Vorwärts- und Zurücknavigation innerhalb des Vaults,
 - anklickbare Wiki-Links für eindeutig aufgelöste Ziele (umgesetzt),
 - Sprünge zu Überschriften,
-- sichtbare Suchtreffer im gelesenen Dokument,
+- sichtbare und automatisch zentrierte Inhaltstreffer im gelesenen Dokument (umgesetzt),
 - Backlinks und Outline als Navigationshilfen,
 - verständlicher Ersatzhinweis, falls der Renderer nicht verfügbar ist.
 

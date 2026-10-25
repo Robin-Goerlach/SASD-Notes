@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Ausgewählte Inhaltstreffer werden in der formatierten Rechercheansicht sichtbar markiert und automatisch zentriert; der Quelltext-Fallback markiert denselben geprüften UTF-16-Bereich. Der vorhandene `SearchHitLocator` behandelt zwischenzeitliche Änderungen. Ein getesteter WinForms-Adapter kodiert Suchtext als JSON und setzt ihn nur als DOM-Text, sodass Notizinhalt keinen ausführbaren Code einschleusen kann. Titel- und Pfadtreffer werden ausdrücklich erklärt.
+
 - Eindeutig aufgelöste Wiki-Links sind in der formatierten Rechercheansicht anklickbar und verwenden denselben Parser und Resolver wie Editor und Backlinks. Ein UI-unabhängiger Application-Dienst bereitet sichere interne Markdown-Links vor; fehlende, mehrdeutige und in Code enthaltene Links bleiben unverändert sichtbar. Navigation läuft über den bestehenden Rechercheverlauf und verlässt den geladenen Vault nicht.
 
 - Die Rechercheansicht rendert Markdown jetzt über einen UI-unabhängigen Vertrag mit Markdig und zeigt das Ergebnis sicher eingeschränkt in WebView2. Rohes HTML, Skripte, Hostobjekte und automatische Navigation sind deaktiviert; CSP, bestätigte externe Links, Größenbegrenzung und Quelltext-Fallback schützen die lokale Arbeitsweise. Renderer-Tests und ADR ergänzt.
