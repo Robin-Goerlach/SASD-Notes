@@ -49,7 +49,24 @@ public sealed class FileSystemVaultRepository : IVaultRepository
     public async Task<IReadOnlyList<NoteDocument>> LoadAllNotesAsync(string vaultPath, CancellationToken cancellationToken = default)
     {
         string normalizedVaultPath = Path.GetFullPath(vaultPath);
-        string[] files = Directory.GetFiles(normalizedVaultPath, "*.md", SearchOption.AllDirectories);
+
+        // Die Dateiendung wird ausdrücklich geprüft, damit das Scanverhalten nicht von der
+        // Groß-/Kleinschreibung des jeweiligen Dateisystems abhängt. Die Sortierung liefert
+        // auf allen Plattformen dieselbe reproduzierbare Reihenfolge relativer Vault-Pfade.
+        string[] files = Directory
+            .EnumerateFiles(normalizedVaultPath, "*", SearchOption.AllDirectories)
+            .Where(path => string.Equals(
+                Path.GetExtension(path),
+                ".md",
+                StringComparison.OrdinalIgnoreCase))
+            .OrderBy(
+                path => Path.GetRelativePath(normalizedVaultPath, path).Replace('\\', '/'),
+                StringComparer.OrdinalIgnoreCase)
+            .ThenBy(
+                path => Path.GetRelativePath(normalizedVaultPath, path).Replace('\\', '/'),
+                StringComparer.Ordinal)
+            .ToArray();
+
         var notes = new List<NoteDocument>(files.Length);
 
         foreach (string file in files)

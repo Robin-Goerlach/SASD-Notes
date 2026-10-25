@@ -2,6 +2,8 @@
 
 ## Unreleased — Build-Baseline-Korrektur
 
+- Der Vault-Scan erkennt Markdown-Endungen jetzt ausdrücklich ohne Unterscheidung der Groß-/Kleinschreibung und lädt Notizen deterministisch nach relativem Pfad. Dadurch sind `.md`, `.MD` und gemischte Schreibweisen unabhängig vom Dateisystem gleich behandelt; fremde Dateitypen, Unterordner und Reihenfolge sind mit echten Dateien getestet.
+
 - Markdown-Formatierungen schützen UTF-16-Surrogatpaare an ungewöhnlichen Auswahlgrenzen. Nichtleere Auswahlen werden auf vollständige Zeichen erweitert; ein Cursor innerhalb eines Emojis wird davor positioniert. High-/Low-Surrogate-, Cursor- und Ergebnisauswahlfälle sind getestet und spezifiziert.
 
 - Zeilenbasierte Markdown-Formatierungen erhalten jetzt jeden vorhandenen CRLF-, LF- und CR-Zeilentrenner einzeln. Gemischte Dokumente werden beim Anwenden von Überschriften, Zitaten, Listen und Checklisten nicht mehr stillschweigend vereinheitlicht; Aufzählungs- und Nummerierungsfälle sind getestet und spezifiziert.

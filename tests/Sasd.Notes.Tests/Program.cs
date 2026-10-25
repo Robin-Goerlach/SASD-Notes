@@ -658,11 +658,21 @@ internal static class Program
             string notePath = Path.Combine(temporaryVault, "Notiz.md");
             await File.WriteAllTextAsync(notePath, "# Ursprünglich\n\nInhalt");
 
+            // Unterschiedliche Schreibweisen der Endung müssen unabhängig vom Dateisystem
+            // als Markdown gelten; fremde Dateitypen bleiben vollständig außerhalb des Scans.
+            string upperCaseNotePath = Path.Combine(temporaryVault, "Alpha.MD");
+            string mixedCaseNotePath = Path.Combine(temporaryVault, "beta.mD");
+            string nestedNotePath = Path.Combine(temporaryVault, "Projekte", "Zeta.md");
+            await File.WriteAllTextAsync(upperCaseNotePath, "# Alpha");
+            await File.WriteAllTextAsync(mixedCaseNotePath, "# Beta");
+            await File.WriteAllTextAsync(Path.Combine(temporaryVault, "Ignorieren.txt"), "Kein Markdown");
+
             var repository = new FileSystemVaultRepository(new WikiLinkParser());
 
             string createdFolder = await repository.CreateFolderAsync(temporaryVault, null, "Projekte");
             AssertEx.Equal("Projekte", createdFolder, "Ein neuer Unterordner sollte relativ zum Vault zurückgegeben werden.");
             AssertEx.True(Directory.Exists(Path.Combine(temporaryVault, "Projekte")), "Der neue Unterordner sollte im Vault angelegt werden.");
+            await File.WriteAllTextAsync(nestedNotePath, "# Zeta");
 
             string nestedFolder = await repository.CreateFolderAsync(temporaryVault, "Projekte", "Archiv");
             AssertEx.Equal("Projekte/Archiv", nestedFolder, "Ein verschachtelter Unterordner sollte korrekt normalisiert werden.");
@@ -692,9 +702,15 @@ internal static class Program
             AssertEx.True(traversalRejected, "Ein übergeordneter Pfad außerhalb des Vaults muss abgelehnt werden.");
 
             IReadOnlyList<NoteDocument> notes = await repository.LoadAllNotesAsync(temporaryVault);
-            AssertEx.Equal(1, notes.Count, "Das Repository sollte die Markdown-Datei laden.");
+            AssertEx.Equal(4, notes.Count,
+                "Der Scan muss alle Markdown-Endungsvarianten laden und andere Dateitypen ignorieren.");
+            AssertEx.Equal(
+                "Alpha.MD|beta.mD|Notiz.md|Projekte/Zeta.md",
+                string.Join("|", notes.Select(item => item.RelativePath.Replace('\\', '/'))),
+                "Der Vault-Scan muss unabhängig von der Enumerationsreihenfolge deterministisch nach Pfad sortieren.");
 
-            NoteDocument note = notes[0];
+            NoteDocument note = notes.Single(item =>
+                string.Equals(item.FullPath, notePath, StringComparison.OrdinalIgnoreCase));
             note.Content = "# Aktualisiert\n\nÄnderung 😀";
             await repository.SaveNoteAsync(temporaryVault, note);
             AssertEx.Equal(note.Content, await File.ReadAllTextAsync(notePath), "Der atomare Speichervorgang sollte den vollständigen Inhalt schreiben.");
