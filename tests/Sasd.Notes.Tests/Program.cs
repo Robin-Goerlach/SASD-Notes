@@ -28,6 +28,7 @@ internal static class Program
             RunSearchServiceTests();
             SearchPreviewTests.Run();
             SearchHitLocatorTests.Run();
+            ResearchNavigationTests.Run();
             RunDisplayFormattingTests();
             RunEditorFormattingTests();
             RunFormatterLineBoundaryTests();

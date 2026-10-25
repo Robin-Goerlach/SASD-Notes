@@ -49,6 +49,7 @@ repository structure for future implementations and their documentation.
 - Wiki-link parser (`[[Note]]`, `[[Folder/Note]]`, `[[Note|Alias]]`)
 - Open selected wiki-links from the editor
 - Search in note titles, paths and content
+- Separate read-only research window with search and navigation history
 - Backlinks panel
 - Outline panel from Markdown headings
 - Info panel and status bar metrics

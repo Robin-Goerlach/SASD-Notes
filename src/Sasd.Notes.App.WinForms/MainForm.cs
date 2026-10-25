@@ -18,6 +18,8 @@ public partial class MainForm : Form
     private readonly System.Windows.Forms.Timer _externalChangeTimer;
     private readonly ToolStripMenuItem _newFolderMenuItem;
     private readonly ToolStripMenuItem _reloadNoteMenuItem;
+    private readonly ToolStripMenuItem _researchMenuItem;
+    private ResearchForm? _researchForm;
     private string? _externalChangeWarningPath;
     private ExternalChangeStatus? _externalChangeWarningStatus;
     private bool _closeConfirmationInProgress;
@@ -55,6 +57,17 @@ public partial class MainForm : Form
         _reloadNoteMenuItem.Click += reloadNoteToolStripMenuItem_Click;
         int refreshIndex = fileToolStripMenuItem.DropDownItems.IndexOf(refreshVaultToolStripMenuItem);
         fileToolStripMenuItem.DropDownItems.Insert(refreshIndex + 1, _reloadNoteMenuItem);
+
+        // Die Recherche bleibt ein eigenes Fenster, damit die bewährte Editoroberfläche unverändert bleibt.
+        var viewMenuItem = new ToolStripMenuItem("Ansicht");
+        _researchMenuItem = new ToolStripMenuItem("Recherche...")
+        {
+            ShortcutKeys = Keys.Control | Keys.Shift | Keys.R
+        };
+        _researchMenuItem.Click += researchToolStripMenuItem_Click;
+        viewMenuItem.DropDownItems.Add(_researchMenuItem);
+        int helpIndex = menuStripMain.Items.IndexOf(helpToolStripMenuItem);
+        menuStripMain.Items.Insert(helpIndex, viewMenuItem);
 
         // Die Prüfung läuft periodisch über den Workspace, damit die UI selbst keinen Dateisystemzugriff benötigt.
         _externalChangeTimer = new System.Windows.Forms.Timer { Interval = 2000 };
@@ -642,6 +655,10 @@ public partial class MainForm : Form
             _currentNote = null;
             ClearEditor();
             labelCurrentDocument.Text = "Keine Notiz geöffnet";
+
+            // Ein bereits geöffnetes Recherchefenster darf keine Verlaufsreferenzen
+            // auf Notizen des vorherigen Vaults behalten.
+            _researchForm?.RefreshWorkspace(preferredNote: null);
             SetStatus($"Vault geöffnet: {vaultInfo.DisplayName}");
             return true;
         }
@@ -1217,6 +1234,48 @@ public partial class MainForm : Form
         }
 
         OpenNoteInEditor(targetNote);
+    }
+
+    /// <summary>
+    /// Öffnet oder aktiviert die eigenständige Rechercheansicht.
+    /// </summary>
+    private void researchToolStripMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_researchForm is not null && !_researchForm.IsDisposed)
+        {
+            _researchForm.Activate();
+            return;
+        }
+
+        _researchForm = new ResearchForm(_workspaceService, OpenNoteFromResearchAsync);
+        _researchForm.FormClosed += (_, _) => _researchForm = null;
+        _researchForm.RefreshWorkspace(_currentNote);
+        _researchForm.Show(this);
+    }
+
+    /// <summary>
+    /// Öffnet eine Recherche-Notiz erst nach der üblichen Dirty-State-Prüfung im Editor.
+    /// </summary>
+    /// <param name="requestedNote">Von der Rechercheansicht ausgewählte Notiz.</param>
+    /// <returns><see langword="true"/>, wenn die Notiz im Editor geöffnet wurde.</returns>
+    private async Task<bool> OpenNoteFromResearchAsync(NoteDocument requestedNote)
+    {
+        NoteDocument? liveNote = _workspaceService.LoadedNotes.FirstOrDefault(note =>
+            string.Equals(note.RelativePath, requestedNote.RelativePath, StringComparison.OrdinalIgnoreCase));
+        if (liveNote is null)
+        {
+            SetStatus("Die Recherche-Notiz gehört nicht mehr zum aktuellen Vault.");
+            return false;
+        }
+
+        if (!ReferenceEquals(_currentNote, liveNote) && !await ConfirmSaveChangesIfRequiredAsync())
+        {
+            return false;
+        }
+
+        OpenNoteInEditor(liveNote);
+        Activate();
+        return true;
     }
 
     /// <summary>

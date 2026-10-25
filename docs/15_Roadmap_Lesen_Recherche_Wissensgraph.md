@@ -32,6 +32,11 @@ den Zugriff auf das Internet.
 
 Geplante Mindestfunktionen:
 
+- eine eigenständige Rechercheansicht, welche die vorhandene Editoroberfläche
+  unverändert lässt,
+- Suche, Trefferliste und schreibgeschützte Dokumentanzeige in einem separaten
+  Fenster,
+- kontrollierter Wechsel einer gelesenen Notiz in den Editor,
 - Umschalten zwischen Bearbeiten und Lesen,
 - optional eine geteilte Editor- und Vorschauansicht,
 - Vorwärts- und Zurücknavigation innerhalb des Vaults,
