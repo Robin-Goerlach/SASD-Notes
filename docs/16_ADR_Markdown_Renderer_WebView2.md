@@ -49,7 +49,10 @@ keine unkontrollierte Netz- oder Skriptausführung ermöglichen.
 Die Rechercheansicht erhält eine hochwertige Markdown-Darstellung, ohne die
 Editoroberfläche umzubauen. Markdig und WebView2 sind zusätzliche externe
 Abhängigkeiten, bleiben jedoch auf Infrastructure beziehungsweise WinForms
-begrenzt.
+begrenzt. Das repositoryweite `Directory.Build.targets` entfernt bei reinen
+WinForms-Projekten die vom WebView2-Paket zusätzlich eingetragene, unbenutzte
+WPF-Referenz. Dadurch bleibt der Release-Publish frei vom bekannten
+`WindowsBase`-Versionskonflikt, ohne WPF in die Anwendung aufzunehmen.
 
 Wiki-Links erscheinen im ersten Renderer-Schritt als Text. Ihre anklickbare
 Darstellung wird anschließend auf Basis des vorhandenen `WikiLinkParser` und

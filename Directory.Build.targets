@@ -1,0 +1,15 @@
+<Project>
+  <!--
+    Das WebView2-NuGet-Paket fügt sowohl den WinForms- als auch den WPF-Wrapper
+    als Referenzen hinzu. In reinen WinForms-Projekten ist der WPF-Wrapper
+    unbenutzt und verursacht beim Publish einen WindowsBase-Versionskonflikt.
+  -->
+  <Target
+    Name="RemoveUnusedWebView2WpfReference"
+    BeforeTargets="ResolveAssemblyReferences"
+    Condition="'$(UseWindowsForms)' == 'true' and '$(UseWPF)' != 'true'">
+    <ItemGroup>
+      <Reference Remove="@(Reference->WithMetadataValue('FileName', 'Microsoft.Web.WebView2.Wpf'))" />
+    </ItemGroup>
+  </Target>
+</Project>
